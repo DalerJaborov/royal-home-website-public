@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Нет подключения — ROYAL HOME</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #0a1f16 0%, #0f2e22 40%, #1a4d3a 100%);
+    color: #fff;
+    text-align: center;
+    padding: 24px;
+  }
+  .card { max-width: 360px; }
+  .wifi { width: 120px; height: 120px; margin: 0 auto 28px; }
+  .wifi svg { width: 100%; height: 100%; }
+  .arc {
+    stroke: #F6C453; stroke-width: 7; fill: none; stroke-linecap: round;
+    opacity: 0.25;
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  .arc:nth-of-type(1) { animation-delay: 0s; }
+  .arc:nth-of-type(2) { animation-delay: 0.35s; }
+  .arc:nth-of-type(3) { animation-delay: 0.7s; }
+  .dot { fill: #F6C453; animation: pulse 2.2s ease-in-out infinite; animation-delay: 1.05s; }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.2; }
+    30% { opacity: 1; }
+  }
+  h1 { font-size: 22px; font-weight: 800; margin-bottom: 10px; letter-spacing: 0.02em; }
+  p { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.75); margin-bottom: 28px; }
+  .btn {
+    display: inline-block;
+    padding: 13px 32px;
+    border-radius: 14px;
+    background: #F6C453;
+    color: #0f2e22;
+    font-weight: 700;
+    font-size: 15px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 8px 24px rgba(246, 196, 83, 0.25);
+  }
+  .btn:active { transform: scale(0.97); }
+  .brand {
+    margin-top: 36px;
+    font-size: 12px;
+    letter-spacing: 0.28em;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="wifi">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path class="arc" d="M15 52 A 50 50 0 0 1 85 52" />
+        <path class="arc" d="M27 64 A 33 33 0 0 1 73 64" />
+        <path class="arc" d="M39 76 A 16 16 0 0 1 61 76" />
+        <circle class="dot" cx="50" cy="86" r="5.5" />
+      </svg>
+    </div>
+    <h1>Нет подключения к интернету</h1>
+    <p>Проверьте Wi-Fi или мобильную сеть и попробуйте снова — мы сразу вернём вас к квартирам Душанбе.</p>
+    <button class="btn" onclick="location.reload()">Повторить</button>
+    <div class="brand">ROYAL HOME</div>
+  </div>
+  <script>
+    // The moment the connection comes back, return to the site automatically.
+    window.addEventListener('online', function () { location.reload(); });
+  </script>
+</body>
+</html>

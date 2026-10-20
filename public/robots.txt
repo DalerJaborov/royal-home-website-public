@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /trpc/
+
+# Public read resources used by rendered pages. Authentication and all other
+# API routes remain disallowed; API responses themselves carry noindex.
+Allow: /api/trpc/listing.list
+Allow: /api/trpc/listing.getById
+Allow: /api/trpc/blog.list
+Allow: /api/trpc/blog.getBySlug
+Allow: /api/trpc/cms.getAll
+Allow: /api/trpc/cms.legacyArticleLocales
+Allow: /api/trpc/instagram.getReels
+
+Sitemap: https://royalhome.tj/sitemap.xml

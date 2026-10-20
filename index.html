@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ru-TJ">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <!-- Подтверждение владения доменом для Meta (Настройки компании → Домены).
+         Обязан лежать именно здесь, в статическом <head>: Meta не засчитывает
+         тег, добавленный из JavaScript, поэтому через хук SEO его ставить нельзя.
+         После подтверждения не удалять — Meta перепроверяет домен периодически. -->
+    <meta name="facebook-domain-verification" content="2m30uo06rbyk6cx0x8f62mlngi298e" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Updated per route at runtime (see useStatusBarColor) so the bar tracks
+         the colour at the top of the current screen instead of a fixed green. -->
+    <meta name="theme-color" content="#0f2e22" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- `default` = normal iOS status bar with DARK icons that the system keeps
+         legible on any page. `black-translucent` forces WHITE icons, which is
+         why the old build needed a hard dark-green strip painted underneath. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ROYAL HOME" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- SEO -->
+    <title>Купить квартиру в Душанбе | ROYAL HOME — Недвижимость</title>
+    <meta name="description" content="Royal Home — надёжное агентство недвижимости в Душанбе. Проверенные квартиры, профессиональные риелторы, полное юридическое сопровождение." />
+    <meta name="keywords" content="квартира Душанбе, купить квартиру Таджикистан, недвижимость Душанбе, агентство недвижимости, новостройки Душанбе, ипотека Душанбе, фуруши хона дар Душанбе, хонаи фуруши, манзил Душанбе, хона Душанбе, Royal Home" />
+    <meta name="author" content="ROYAL HOME" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="Russian" />
+    <meta name="geo.region" content="TJ-DU" />
+    <meta name="geo.placename" content="Dushanbe" />
+    <meta name="geo.position" content="38.5598;68.7870" />
+    <meta name="ICBM" content="38.5598, 68.7870" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Купить квартиру в Душанбе | ROYAL HOME" />
+    <meta property="og:description" content="Проверенные квартиры в Душанбе. Профессиональные риелторы, ипотека, полное сопровождение." />
+    <meta property="og:url" content="https://royalhome.tj" />
+    <meta property="og:site_name" content="ROYAL HOME" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:image" content="https://royalhome.tj/og-image.jpg" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Купить квартиру в Душанбе | ROYAL HOME" />
+    <meta name="twitter:description" content="Проверенные квартиры в Душанбе. Профессиональные риелторы, ипотека, полное сопровождение." />
+    <meta name="twitter:image" content="https://royalhome.tj/og-image.jpg" />
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://royalhome.tj" />
+
+    <!-- Fonts: self-hosted (see scripts/self-host-fonts.mjs) so text render
+         never waits on a cross-origin round trip to Google's CDN. -->
+    <!-- Unbounded — фирменный шрифт заголовков (h1–h4, hero): без preload он
+         догружался последним и заголовки заметно «перескакивали». -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/unbounded-700-cyrillic.woff2" crossorigin />
+    <link href="/fonts.css" rel="stylesheet" />
+
+    <!-- Logo: used in the header on every page and in the PWA splash screen
+         (see the standalone-launch script below) — preloaded so neither ever
+         shows a blank/flash while it fetches. -->
+    <link rel="preload" as="image" href="/images/logo-royal-2026.webp" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/webp" href="/images/logo-royal-2026.webp" />
+
+    <!-- Theme (theme-color lives once, up in the PWA block, set per route) -->
+    <meta name="msapplication-TileColor" content="#1a4d3a" />
+
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "RealEstateAgent",
+          "@id": "https://royalhome.tj/#organization",
+          "name": "ROYAL HOME",
+          "alternateName": "ROYAL HOME",
+          "url": "https://royalhome.tj",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://royalhome.tj/images/logo-royal-2026.webp"
+          },
+          "image": "https://royalhome.tj/images/hero-bg.webp",
+          "description": "Агентство недвижимости в Душанбе. Продажа квартир, ипотека, срочный выкуп.",
+          "telephone": "+992446501414",
+          "email": "info@royalhome.tj",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "ул. Бухоро 49, 2 этаж",
+            "addressLocality": "Душанбе",
+            "addressRegion": "Душанбе",
+            "addressCountry": "TJ"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": "38.5598",
+            "longitude": "68.7870"
+          },
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+              "opens": "09:30",
+              "closes": "18:00"
+            }
+          ],
+          "sameAs": [
+            "https://www.instagram.com/royal.home.tj/",
+            "https://www.facebook.com/people/Royalhometj/61583608873603/",
+            "https://yandex.ru/maps/org/153661125699/"
+          ],
+          "hasMap": "https://yandex.ru/maps/org/153661125699/",
+          "areaServed": {
+            "@type": "City",
+            "name": "Душанбе"
+          },
+          "priceRange": "$$$"
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://royalhome.tj/#website",
+          "url": "https://royalhome.tj",
+          "name": "ROYAL HOME",
+          "publisher": {
+            "@id": "https://royalhome.tj/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://royalhome.tj/listings?district={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "WebPage",
+          "@id": "https://royalhome.tj/#webpage",
+          "url": "https://royalhome.tj",
+          "name": "Купить квартиру в Душанбе | ROYAL HOME",
+          "isPartOf": {
+            "@id": "https://royalhome.tj/#website"
+          },
+          "about": {
+            "@id": "https://royalhome.tj/#organization"
+          },
+          "breadcrumb": {
+            "@id": "https://royalhome.tj/#breadcrumb"
+          }
+        },
+        {
+          "@type": "BreadcrumbList",
+          "@id": "https://royalhome.tj/#breadcrumb",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Главная",
+              "item": "https://royalhome.tj"
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        overscroll-behavior: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body { font-family: 'Inter', 'Inter Fallback', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; }
+
+      /* Brand-dark-green splash (back by request) — soft gold glow behind
+         the logo instead of a card/border, so it still reads as glass lit
+         from within rather than a flat block of color. */
+      #pwa-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #1a4d3a;
+      }
+      #pwa-splash::before,
+      #pwa-splash::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(60px);
+        pointer-events: none;
+      }
+      #pwa-splash::before {
+        width: 60vw;
+        height: 60vw;
+        max-width: 420px;
+        max-height: 420px;
+        background: radial-gradient(circle, rgba(246, 196, 83, 0.28), transparent 70%);
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -55%);
+      }
+      #pwa-splash::after {
+        width: 90vw;
+        height: 90vw;
+        max-width: 640px;
+        max-height: 640px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.06), transparent 72%);
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: -1;
+      }
+      #pwa-splash .pwa-splash-glass {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+      #pwa-splash img {
+        width: 26vw;
+        max-width: 120px;
+        min-width: 76px;
+        filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.35));
+        animation: pwaSplashPulse 1.1s ease-in-out infinite;
+      }
+      #pwa-splash .pwa-splash-title {
+        font-family: 'Inter', 'Inter Fallback', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 0.16em;
+        text-align: center;
+        color: #ffffff;
+        animation: pwaSplashPulse 1.1s ease-in-out infinite;
+      }
+      #pwa-splash.pwa-splash-hide {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+      @keyframes pwaSplashPulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.06); opacity: 0.88; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Shown only when launched as an installed PWA (standalone display
+         mode) -- a brief animated-logo splash while the app boots, so
+         launching feels like opening a native app instead of a browser tab.
+         Regular website visits skip this entirely. -->
+    <div id="pwa-splash">
+      <div class="pwa-splash-glass">
+        <img alt="" />
+        <div class="pwa-splash-title">ROYAL HOME</div>
+      </div>
+    </div>
+    <div id="root"></div>
+    <!-- Логика сплэша — в отдельном файле, не инлайном: CSP (script-src 'self'
+         без хэшей) блокировал инлайновый скрипт, и сплэш не работал вовсе. -->
+    <script src="/pwa-splash.js" defer></script>
+    <script type="module" src="/src/entry-client.ts"></script>
+
+    <!-- The local loader requests Telegram's SDK only inside a Mini App. -->
+    <script src="/telegram-webapp-loader.js" defer></script>
+
+    <!-- Яндекс.Метрика — тот же паттерн «отдельный файл вместо инлайна» из-за CSP. -->
+    <script src="/metrika-loader.js" defer></script>
+  </body>
+</html>

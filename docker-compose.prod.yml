@@ -1,0 +1,85 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        # Значение берётся из .env.production (деплой запускает compose
+        # с --env-file .env.production). Ключ публичный по своей природе.
+        VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-}
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      PORT: "3000"
+      # Use the same public upload route locally, avoiding a CDN round trip.
+      CARD_IMAGE_LOCAL_SOURCE: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - uploads:/app/uploads
+      # Непубличные runtime-данные (например data/ig-token.json — обновляемый
+      # Instagram-токен). НЕ раздаётся статикой, в отличие от uploads/.
+      - data:/app/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - default
+      - royalhome-shared
+
+  # Разовый прогон `drizzle-kit push` против боевой БД — сама схема (db/schema.ts)
+  # уезжает вместе с кодом при обычном деплое, но НИКТО её не применяет: ops/deploy.sh
+  # делает только `git pull` + `up -d --build`, а рантайм-образ app собран через
+  # `npm ci --omit=dev` (drizzle-kit — devDependency, его там нет) и не копирует
+  # drizzle.config.ts вовсе (см. Dockerfile). Раньше это не всплывало — все прежние
+  # поля добавлялись в уже существующую таблицу с DEFAULT, и сама схема применялась
+  # человеком вручную по мере надобности. Новая ТАБЛИЦА (listing_events, добавлена
+  # для CRM-воронки покупателя — api/crm-sync-router.ts GET /stats) требует явного
+  # db:push, а без этого сервиса выполнить его было решительно нечем.
+  #
+  # target: build — та же стадия, что собирает фронтенд: там ЕСТЬ drizzle-kit
+  # (полный npm ci) и drizzle.config.ts (COPY . .). profiles: [tools] — не
+  # поднимается обычным `up -d`, только явным вызовом ниже.
+  #
+  # Запуск после деплоя, добавляющего таблицу/колонку в db/schema.ts:
+  #   docker compose --profile tools -f docker-compose.prod.yml --env-file .env.production run --rm db-push
+  # (--profile — флаг самого `docker compose`, а не `run`: после `run` compose
+  # отвечает «unknown flag: --profile», проверено на Compose v5.1.1.)
+  db-push:
+    build:
+      context: .
+      target: build
+    profiles: ["tools"]
+    env_file: .env.production
+    environment:
+      # mysql — имя сервиса ниже, Docker DNS резолвит его только внутри сети
+      # компоуза; наружу порт БД не пробрасывается (см. mysql ниже).
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/royalhome
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: ["npx", "drizzle-kit", "push"]
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: royalhome
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql_data:
+  uploads:
+  data:
+
+networks:
+  royalhome-shared:
+    external: true

@@ -1,0 +1,26 @@
+# Production edge fragment applied 2026-10-16. This is not a full Caddyfile.
+# Keep inside the existing public `handle @uploads` block, after its common
+# Cache-Control header and before reverse_proxy. Keep CRM host routes intact.
+# Validate the complete candidate, preserve a backup, then reload Caddy.
+# Official response matching: https://caddyserver.com/docs/caddyfile/directives/header
+
+@royalSiteThumbnails {
+    host royalhome.tj
+    method GET HEAD
+    path /uploads/thumbs/*.webp
+}
+
+# The upstream static server explicitly declares these public but zero-age.
+# Defer until response headers exist and replace both conflicting values.
+# Preserve private/no-store responses instead of broadening cache eligibility.
+header @royalSiteThumbnails Cache-Control "public, max-age=2592000, immutable" {
+    match {
+        status 200 304
+        header Cache-Control "public, max-age=0"
+    }
+}
+
+# Do not retain missing/failed thumbnails under the old month-long rule.
+header @royalSiteThumbnails Cache-Control "no-store" {
+    match status 4xx 5xx
+}

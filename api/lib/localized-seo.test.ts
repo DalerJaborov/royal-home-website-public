@@ -1,0 +1,214 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PublicLocaleDictionary } from '@contracts/public-i18n';
+import { TAJIK_CATALOG, TAJIK_CONTACTS } from '@contracts/tajik-catalog';
+import { ARTICLE_FINANCE_NOTE } from '@contracts/article-finance-note';
+import { englishPropertyMeta } from '@contracts/english-catalog';
+vi.mock('../queries/cms', () => ({ getCmsEntry: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../queries/listings', () => ({ findListingById: vi.fn(), findAllListings: vi.fn(), findPublishedListingIds: vi.fn() }));
+vi.mock('../queries/articles', () => ({ findPublishedArticleBySlug: vi.fn(), findPublishedArticles: vi.fn() }));
+vi.mock('./public-translations', async () => {
+  const actual = await vi.importActual<typeof import('./public-translations')>('./public-translations');
+  return { ...actual, getPublicDictionary: vi.fn(), completedLocalePages: vi.fn(), getPublicArticleTranslation: vi.fn(), translationSourceHash: vi.fn(actual.translationSourceHash) };
+});
+import { getPublicDictionary, completedLocalePages, getPublicArticleTranslation, translationSourceHash } from './public-translations';
+import { HISTORICAL_ARTICLE_MEDIA, HISTORICAL_COVER_NOTE, HISTORICAL_BODY_IMAGES_NOTE } from '@contracts/article-media-disclosure';
+import { getCmsEntry } from '../queries/cms';
+import { findListingById, findAllListings, findPublishedListingIds } from '../queries/listings';
+import { findPublishedArticleBySlug, findPublishedArticles } from '../queries/articles';
+import { headForPath, injectSeo } from './prerenderSeo';
+import { buildSitemapXml } from './sitemap';
+
+const dictionary: PublicLocaleDictionary = { strings: { Каталог: 'Феҳрист', Контакты: 'Тамос' }, completedPages: ['/listings', '/contacts', '/listing/8', '/blog'], pages: { '/listings': TAJIK_CATALOG, '/contacts': TAJIK_CONTACTS } };
+const listing = { id: 8, title: 'Квартира в Душанбе', location: 'Сино', rooms: 2, area: 80, price: 700000, category: 'APARTMENT' as const, published: true, sold: false, updatedAt: new Date('2026-10-15'), imageUrls: ['/images/apartment.webp'] };
+const article = { id: 12, slug: 'guide', title: 'Советы покупателю', excerpt: 'Как выбрать жильё', contentHtml: '<p>Старый исходный текст</p>', updatedAt: new Date('2026-10-15'), publishedAt: new Date('2026-10-10') };
+const template = '<html lang="ru"><head><title>old</title><link rel="canonical" href="https://royalhome.tj/"/><link rel="alternate" hreflang="fr" href="https://royalhome.tj/fr"/></head><body><div id="root"></div></body></html>';
+
+beforeEach(() => {
+  vi.mocked(getCmsEntry).mockReset().mockResolvedValue(undefined);
+  vi.mocked(getPublicDictionary).mockImplementation(async locale => locale === 'tg' ? dictionary : undefined);
+  vi.mocked(completedLocalePages).mockResolvedValue({ tg: dictionary.completedPages!, en: [] });
+  vi.mocked(findAllListings).mockResolvedValue([listing] as never);
+  vi.mocked(findListingById).mockResolvedValue(listing as never);
+  vi.mocked(findPublishedListingIds).mockImplementation(async ids => new Set(ids));
+  vi.mocked(findPublishedArticleBySlug).mockResolvedValue(article as never);
+  vi.mocked(findPublishedArticles).mockResolvedValue({ items: [article], total: 1 } as never);
+  vi.mocked(getPublicArticleTranslation).mockResolvedValue(undefined);
+  vi.mocked(translationSourceHash).mockReset().mockImplementation(source => source.id === 12 ? 'unreviewed-fixture-source' : 'another-unreviewed-fixture-source');
+});
+describe('crawlable translated public pages', () => {
+  it('matches English initial head to the same entity helper used by the client', async () => {
+    const english: PublicLocaleDictionary = {strings:{Каталог:'Catalog',Контакты:'Contact'},completedPages:['/listing/8']};
+    vi.mocked(getPublicDictionary).mockImplementation(async locale => locale === 'en' ? english : dictionary);
+    vi.mocked(completedLocalePages).mockResolvedValue({tg:dictionary.completedPages!,en:english.completedPages!});
+    const head = await headForPath('/en/listing/8');
+    const clientMeta = englishPropertyMeta(listing);
+    expect(head.title).toBe(clientMeta.title);
+    expect(head.description).toBe(clientMeta.description);
+    expect(head.body).toContain(clientMeta.heading);
+  });
+  it('uses the actual absolute HTTP request URL for language, self canonical and reciprocal alternates', async () => {
+    const absolute = await headForPath('https://royalhome.tj/tg/khonaho-dushanbe');
+    const relative = await headForPath('/tg/khonaho-dushanbe');
+    expect(absolute).toEqual(relative);
+    expect(absolute.status).toBe(200);
+    const html = injectSeo(template, absolute);
+    expect(html).toContain('<html lang="tg">');
+    expect(html).toContain('rel="canonical" href="https://royalhome.tj/tg/khonaho-dushanbe"');
+    expect(html).toContain('hreflang="ru" href="https://royalhome.tj/listings"');
+    expect(html).toContain('hreflang="tg" href="https://royalhome.tj/tg/khonaho-dushanbe"');
+    expect((await headForPath('https://royalhome.tj/listings')).alternates).toEqual(absolute.alternates);
+    const filtered = await headForPath('https://royalhome.tj/tg/khonaho-dushanbe?rooms=2');
+    expect(filtered.language).toBe('tg');
+    expect(filtered.noindex).toBe(true);
+    expect(filtered.alternates).toEqual([]);
+  });
+  it('serves Tajik source HTML with its own language/canonical and reciprocal Russian alternates', async () => {
+    const head = await headForPath('/tg/khonaho-dushanbe');
+    expect(head.status).toBe(200);
+    const html = injectSeo(template, head);
+    expect(html).toContain('<html lang="tg">');
+    expect(html).toContain('rel="canonical" href="https://royalhome.tj/tg/khonaho-dushanbe"');
+    expect(html).toContain('href="/tg/khona/8"');
+    expect(html).toContain('Хонаи 2-ҳуҷрагӣ');
+    expect(html).toContain('hreflang="ru" href="https://royalhome.tj/listings"');
+    expect(html).toContain('hreflang="tg" href="https://royalhome.tj/tg/khonaho-dushanbe"');
+    expect(html).not.toContain('hreflang="fr"');
+    expect((await headForPath('/listings')).alternates).toEqual(head.alternates);
+  });
+  it('preserves English raw SEO when Hono supplies an absolute local-preview URL', async () => {
+    const english: PublicLocaleDictionary = { strings: { Каталог: 'Catalog', Контакты: 'Contact' }, completedPages: ['/contacts'], pages: { '/contacts': { title: 'Contact ROYAL HOME', description: 'Contact our Dushanbe office', h1: 'Contact us' } } };
+    vi.mocked(getPublicDictionary).mockImplementation(async locale => locale === 'tg' ? dictionary : locale === 'en' ? english : undefined);
+    vi.mocked(completedLocalePages).mockResolvedValue({ tg: dictionary.completedPages!, en: english.completedPages! });
+    const absolute = await headForPath('http://127.0.0.1:4187/en/contacts');
+    expect(absolute).toEqual(await headForPath('/en/contacts'));
+    const html = injectSeo(template, absolute);
+    expect(absolute.status).toBe(200);
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain('rel="canonical" href="https://royalhome.tj/en/contacts"');
+    expect(html).toContain('hreflang="en" href="https://royalhome.tj/en/contacts"');
+    expect(html).toContain('hreflang="ru" href="https://royalhome.tj/contacts"');
+    expect(html).toContain('hreflang="tg" href="https://royalhome.tj/tg/tamos"');
+  });
+  it('keeps unavailable languages retryable and unindexed, without fake translation or English alternates', async () => {
+    const head = await headForPath('/en/contacts');
+    expect(head.status).toBe(503);
+    expect(head.noindex).toBe(true);
+    expect(head.body).not.toContain('Мы всегда на связи');
+    expect(injectSeo(template, head)).not.toContain('hreflang=');
+  });
+  it('unpublished and missing entities remain genuine404 and remove canonical/alternates', async () => {
+    vi.mocked(findListingById).mockResolvedValue({ ...listing, published: false } as never);
+    const head = await headForPath('/tg/khona/8');
+    expect(head.status).toBe(404);
+    expect(head.noindex).toBe(true);
+    expect(injectSeo(template, head)).not.toContain('rel="canonical"');
+    expect(head.alternates).toEqual([]);
+  });
+  it('filters stay noindex and carry no hreflang', async () => {
+    const head = await headForPath('/tg/khonaho-dushanbe?rooms=2');
+    expect(head.noindex).toBe(true);
+    expect(head.alternates).toEqual([]);
+  });
+  it('stale article translations are excluded from HTML alternates and sitemap', async () => {
+    expect((await headForPath('/tg/blog/guide')).status).toBe(503);
+    expect((await headForPath('/blog/guide')).alternates).toEqual([]);
+    const xml = await buildSitemapXml();
+    expect(xml).toContain('<loc>https://royalhome.tj/tg/khonaho-dushanbe</loc>');
+    expect(xml).not.toContain('<loc>https://royalhome.tj/tg/blog/guide</loc>');
+    expect(xml).not.toContain('/en/');
+  });
+  it('a verified published article uses translated body and Article language in raw HTML', async () => {
+    vi.mocked(getPublicArticleTranslation).mockImplementation(async locale => locale === 'tg' ? { sourceHash: 'verified', title: 'Интихоби манзил', excerpt: 'Маслиҳатҳо', contentHtml: '<p>Маълумот барои харидорон.</p>', metaTitle: 'Интихоби манзил | ROYAL HOME', metaDescription: 'Маслиҳатҳо барои харидорон', faq: [] } : undefined);
+    const head = await headForPath('/tg/blog/guide');
+    expect(head.status).toBe(200);
+    const html = injectSeo(template, head);
+    expect(html).toContain('Маълумот барои харидорон.');
+    expect(html).not.toContain('Старый исходный текст');
+    expect(html).toContain('"inLanguage":"tg"');
+    expect((await buildSitemapXml())).toContain('<loc>https://royalhome.tj/tg/blog/guide</loc>');
+  });
+  it('invalidates legacy article HTML, reciprocal alternates and sitemap when its CMS source changes', async () => {
+    const post = { id: 2, title: 'Советы', excerpt: 'Введение', content: '## Раздел\n\nТекст статьи', active: true };
+    const translated = { ...dictionary, completedPages: [...dictionary.completedPages!, '/blog/2'],
+      strings: { ...dictionary.strings, Советы: 'Маслиҳатҳо', Введение: 'Муқаддима', [post.content]: '## Бахш\n\nМатни мақола' },
+      cms: { blogPosts: [{ ...post, title: 'Stale snapshot title', content: 'Stale snapshot content' }] } };
+    vi.mocked(getCmsEntry).mockImplementation(async key => key === 'blogPosts' ? [post] : undefined);
+    vi.mocked(getPublicDictionary).mockImplementation(async locale => locale === 'tg' ? translated : undefined);
+    vi.mocked(completedLocalePages).mockResolvedValue({ tg: translated.completedPages, en: [] });
+    const head = await headForPath('/tg/blog/2');
+    expect(head.status).toBe(200);
+    expect(head.body).toContain('<h2>Бахш</h2>');
+    expect(head.body).not.toContain('Stale snapshot');
+    expect((await headForPath('/blog/2')).alternates).toEqual(head.alternates);
+    expect(await buildSitemapXml()).toContain('<loc>https://royalhome.tj/tg/blog/2</loc>');
+    vi.mocked(getCmsEntry).mockImplementation(async key => key === 'blogPosts' ? [{ ...post, content: 'Обновленный текст статьи' }] : undefined);
+    expect((await headForPath('/tg/blog/2')).status).toBe(503);
+    expect((await headForPath('/tg/blog/2')).noindex).toBe(true);
+    expect((await headForPath('/blog/2')).alternates).toEqual([]);
+    expect(await buildSitemapXml()).not.toContain('<loc>https://royalhome.tj/tg/blog/2</loc>');
+  });
+  it('keeps translated financial caveat and exact approved cover credit in raw HTML', async () => {
+    vi.mocked(findPublishedArticleBySlug).mockResolvedValue({ ...article, id: 15, title: 'Ипотека в Душанбе', coverImageUrl: '/uploads/13bb2875-bfea-4812-8ecc-48f7eb50679a.webp' } as never);
+    vi.mocked(getPublicDictionary).mockImplementation(async locale => locale === 'tg' ? { ...dictionary, strings: { ...dictionary.strings, [ARTICLE_FINANCE_NOTE]: 'Шартҳои бонкҳо тағйир меёбанд.', 'Фото объекта из каталога': 'Акси хона аз феҳрист' } } : undefined);
+    vi.mocked(getPublicArticleTranslation).mockResolvedValue({ sourceHash: 'verified', title: 'Ипотека', excerpt: 'Шарҳи шартҳо', contentHtml: '<p>Матни мақола.</p>', metaTitle: 'Ипотека', metaDescription: 'Шарҳи шартҳо', faq: [] });
+    const html = injectSeo(template, await headForPath('/tg/blog/guide'));
+    expect(html).toContain('Шартҳои бонкҳо тағйир меёбанд.');
+    expect(html).toContain('Акси хона аз феҳрист');
+    expect(html).toContain('href="/tg/khona/100"');
+    vi.mocked(findPublishedArticleBySlug).mockResolvedValue({ ...article, id: 15, coverImageUrl: '/uploads/another.webp' } as never);
+    expect((await headForPath('/tg/blog/guide')).body).not.toContain('Акси хона аз феҳрист');
+  });
+  it('renders reviewed media disclosures in RU/TG/EN without rewriting source content or labeling real photos illustrations', async () => {
+    const reviewed = HISTORICAL_ARTICLE_MEDIA.find(row => row.id === 16)!;
+    const source = { ...article, id: reviewed.id, coverImageUrl: reviewed.coverUrl };
+    vi.mocked(findPublishedArticleBySlug).mockResolvedValue(source as never);
+    vi.mocked(translationSourceHash).mockReturnValue(reviewed.sourceHash);
+    const tg = { ...dictionary, strings: { ...dictionary.strings, [HISTORICAL_COVER_NOTE]: 'Тасвири таҳрирӣ.', [HISTORICAL_BODY_IMAGES_NOTE]: 'Тасвирҳо барои шарҳ истифода мешаванд.' } };
+    const en = { ...dictionary, strings: { ...dictionary.strings, [HISTORICAL_COVER_NOTE]: 'Editorial illustration.', [HISTORICAL_BODY_IMAGES_NOTE]: 'Images are explanatory.' } };
+    vi.mocked(getPublicDictionary).mockImplementation(async locale => locale === 'tg' ? tg : locale === 'en' ? en : undefined);
+    vi.mocked(completedLocalePages).mockResolvedValue({ tg: dictionary.completedPages!, en: dictionary.completedPages! });
+    vi.mocked(getPublicArticleTranslation).mockResolvedValue({ sourceHash: reviewed.sourceHash, title: 'Article', excerpt: 'Introduction', contentHtml: '<p>Translated body.</p>', metaTitle: 'Article', metaDescription: 'Introduction', faq: [] });
+    const russian = await headForPath('https://royalhome.tj/blog/guide');
+    expect(russian.body).toContain(HISTORICAL_COVER_NOTE);
+    expect(russian.body).toContain(HISTORICAL_BODY_IMAGES_NOTE);
+    expect((await headForPath('https://royalhome.tj/tg/blog/guide')).body).toContain('Тасвири таҳрирӣ.');
+    const english = (await headForPath('https://royalhome.tj/en/blog/guide')).body;
+    expect(english).toContain('Editorial illustration.');
+    expect(english).toContain('Images are explanatory.');
+    expect(source.contentHtml).toBe(article.contentHtml);
+    vi.mocked(translationSourceHash).mockReturnValue('edited-unreviewed-source');
+    expect((await headForPath('/blog/guide')).body).not.toContain(HISTORICAL_BODY_IMAGES_NOTE);
+    expect((await headForPath('/tg/blog/guide')).body).toContain('Тасвири таҳрирӣ.');
+    expect((await headForPath('/tg/blog/guide')).body).not.toContain('Тасвирҳо барои шарҳ истифода мешаванд.');
+    const ownPhoto = HISTORICAL_ARTICLE_MEDIA.find(row => row.id === 14)!;
+    vi.mocked(findPublishedArticleBySlug).mockResolvedValue({ ...source, id: ownPhoto.id, coverImageUrl: ownPhoto.coverUrl } as never);
+    vi.mocked(translationSourceHash).mockReturnValue(ownPhoto.sourceHash);
+    const photo = (await headForPath('/blog/guide')).body;
+    expect(photo).toContain(HISTORICAL_BODY_IMAGES_NOTE);
+    expect(photo).not.toContain(HISTORICAL_COVER_NOTE);
+    expect(photo).toContain('Фото объекта из каталога');
+    expect(photo).toContain('href="/listing/98"');
+    vi.mocked(findPublishedArticleBySlug).mockResolvedValue({ ...source, coverImageUrl: '/api/uploads/unrelated.webp' } as never);
+    expect((await headForPath('/blog/guide')).body).not.toContain(HISTORICAL_COVER_NOTE);
+  });
+  it('renders unavailable property links honestly in Russian/Tajik while retaining published links, and fails closed on read errors', async () => {
+    const contentHtml = '<p><a href="/listing/9">Старое объявление</a> <a href="/listing/8">Доступное объявление</a></p>';
+    vi.mocked(findPublishedArticleBySlug).mockResolvedValue({ ...article, contentHtml } as never);
+    vi.mocked(findPublishedListingIds).mockResolvedValue(new Set([8]));
+    vi.mocked(getPublicDictionary).mockImplementation(async locale => locale === 'tg' ? { ...dictionary, strings: { ...dictionary.strings, 'Объявление больше недоступно': 'Эълон дигар дастрас нест', 'Актуальные предложения в каталоге': 'Пешниҳодҳои ҷорӣ дар феҳрист' } } : undefined);
+    vi.mocked(getPublicArticleTranslation).mockImplementation(async locale => locale === 'tg' ? { sourceHash: 'verified', title: 'Маслиҳатҳо', excerpt: 'Муқаддима', contentHtml, metaTitle: 'Маслиҳатҳо', metaDescription: 'Муқаддима', faq: [] } : undefined);
+    const russian = (await headForPath('/blog/guide')).body;
+    expect(russian).toContain('Объявление больше недоступно');
+    expect(russian).not.toContain('href="/listing/9"');
+    expect(russian).toContain('href="/listing/8"');
+    const tajik = (await headForPath('/tg/blog/guide')).body;
+    expect(tajik).toContain('Эълон дигар дастрас нест');
+    expect(tajik).toContain('href="/tg/khonaho-dushanbe"');
+    expect(tajik).toContain('href="/tg/khona/8"');
+    vi.mocked(findPublishedListingIds).mockRejectedValue(new Error('Read unavailable'));
+    const failure = await headForPath('/tg/blog/guide');
+    expect(failure.status).toBe(503);
+    expect(failure.noindex).toBe(true);
+    expect(failure.body).not.toContain('Эълон дигар дастрас нест');
+  });
+});

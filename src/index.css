@@ -1,0 +1,1070 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Онлайн-чат Salebot (public/chat-loader.js): их окно #parent_frame — iframe
+   ФИКСИРОВАННОЙ ширины (~440px), а позицию (left/right) они считают своим JS
+   от ширины экрана. На узких телефонах (375-414px) окно шире самого экрана —
+   вылезает за край или съезжает набок ("криво"). Прижимаем к правому краю с
+   отступами и ограничиваем ширину видимой областью — сам чат внутри остаётся
+   их, меняется только контейнер снаружи. !important обязателен: перебивает
+   инлайн-style, который выставляет их скрипт после каждой перерисовки. */
+@media (max-width: 480px) {
+  #parent_frame {
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+  }
+}
+
+/* Hide scrollbar for thumbnails */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Installed PWA: keep the fixed header clear of the status-bar / notch so the
+   burger button and logo are never tucked underneath it (the reason the menu
+   looked "missing" in the app). Harmless in a browser tab where the inset is 0. */
+@media (display-mode: standalone) {
+  .site-header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    /* brand green (#1a4d3a) — was an unrelated blue (AURA leftover) */
+    --primary: 158 50% 20%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    /* focus ring now matches brand green instead of stray blue */
+    --ring: 158 50% 20%;
+    --radius: 0.875rem;
+
+    /* AURA-inspired colors */
+    --aura-blue: #1a4d3a;
+    --aura-blue-dark: #123526;
+    --aura-blue-light: #256b4f;
+    --aura-green: #1a4d3a;
+    --aura-gold: #F6C453;
+    --aura-text: #111111;
+    --aura-text-secondary: #6B7280;
+    --aura-bg: #F8FAFC;
+    --aura-border: #E2E8F0;
+    --aura-urgent: #EF4444;
+    --aura-success: #10B981;
+    /* Glassmorphism */
+    --glass-bg: rgba(255, 255, 255, 0.10);
+    --glass-border: rgba(255, 255, 255, 0.18);
+    --glass-bg-dark: rgba(12, 19, 16, 0.55);
+    --glass-border-dark: rgba(255, 255, 255, 0.10);
+
+    /* Hero vars — brand palette (logo guide) */
+    --gold: #F5A623;
+    --gold-light: #FFC45A;
+    --gold-dark: #C77708;
+    --white: #ffffff;
+    --sage: #c7d6cd;
+    --sage-dim: #8fa89b;
+    --ink: #101914;
+    --overlay-strength: 0.82;
+  }
+
+  /* Unbounded lacks the six Tajik-specific letter pairs. Use one complete
+     face for each Tajik heading instead of enlarged Arial fallback glyphs. */
+  html:lang(tg) {
+    --font-display: 'Inter';
+  }
+
+  html:lang(ru) [data-public-catalog] {
+    --font-display: 'Unbounded Catalogue', 'Unbounded';
+  }
+
+  * { @apply border-border; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Inter', 'Inter Fallback', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    font-feature-settings: 'ss01' on, 'cv05' on;
+    text-rendering: optimizeLegibility;
+    background-color: #ffffff;
+    color: #111111;
+    overflow-x: hidden;
+  }
+
+  /* Legal text sits far below the first screen and contains extra font glyphs.
+     Keep it in the document/accessibility tree, but let the browser render it
+     as it approaches the viewport. These blocks contain no dialogs/overlays. */
+  .footer-legal {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 320px;
+  }
+  .footer-copyright {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 100px;
+  }
+  .footer-language {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 44px;
+  }
+  @media (min-width: 768px) {
+    .footer-legal { contain-intrinsic-block-size: auto 180px; }
+    .footer-copyright { contain-intrinsic-block-size: auto 75px; }
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display, 'Unbounded'), 'Unbounded Fallback', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-wrap: balance;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+
+  /* The admin panel isn't marketing copy — Unbounded (the branded display
+     font used for public-site headings) is decorative and harder to read at
+     the small sizes admin UI headings use. Fall back to the same Inter the
+     body text already uses everywhere inside the admin shell. */
+  .admin-shell h1,
+  .admin-shell h2,
+  .admin-shell h3,
+  .admin-shell h4 {
+    font-family: 'Inter', 'Inter Fallback', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    letter-spacing: normal;
+  }
+
+  p {
+    line-height: 1.65;
+  }
+
+  ::selection {
+    background-color: #1a4d3a;
+    color: #ffffff;
+  }
+
+  /* Slim, brand-tinted scrollbar instead of the default OS one */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(26, 77, 58, 0.35);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: rgba(26, 77, 58, 0.55); }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200;
+    background-color: var(--aura-blue);
+    color: white;
+  }
+  .btn-primary:hover {
+    background-color: var(--aura-blue-dark);
+    transform: translateY(-1px);
+  }
+
+  .btn-yellow {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200;
+    background-color: #FBBF24;
+    color: #1F2937;
+  }
+  .btn-yellow:hover {
+    background-color: #F59E0B;
+    transform: translateY(-1px);
+  }
+
+  .card-aura {
+    @apply bg-white rounded-2xl overflow-hidden border border-gray-100;
+    box-shadow: 0 1px 2px rgba(15, 46, 34, 0.04), 0 1px 3px rgba(15, 46, 34, 0.03);
+    transition: box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.35s ease;
+  }
+  .card-aura:hover {
+    transform: translateY(-3px);
+    border-color: rgba(26, 77, 58, 0.15);
+    box-shadow: 0 20px 40px -12px rgba(15, 46, 34, 0.16), 0 4px 10px rgba(15, 46, 34, 0.06);
+  }
+
+  .section-padding {
+    @apply px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20;
+  }
+
+  .text-blue { color: var(--aura-blue); }
+  .text-blue-dark { color: var(--aura-blue-dark); }
+  .bg-blue { background-color: var(--aura-blue); }
+  .bg-blue-dark { background-color: var(--aura-blue-dark); }
+  .bg-aura { background-color: var(--aura-bg); }
+  .border-blue { border-color: var(--aura-blue); }
+
+  .glass-nav {
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    background-color: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+
+  .glass-dark {
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    background-color: rgba(12, 19, 16, 0.55);
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+
+  .glass-btn {
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    background-color: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    transition: all 0.3s ease;
+  }
+  .glass-btn:hover {
+    background-color: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.25);
+  }
+
+  .glass-green-btn {
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    background-color: rgba(26, 77, 58, 0.65);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    transition: all 0.3s ease;
+  }
+  .glass-green-btn:hover {
+    background-color: rgba(26, 77, 58, 0.85);
+  }
+
+  /* Ken Burns slow zoom */
+  @keyframes kenBurns {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.08); }
+  }
+  .animate-ken-burns {
+    animation: kenBurns 20s ease-in-out infinite alternate;
+  }
+
+  /* Floating cards animation */
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+  .animate-float-delay {
+    animation: float 5s ease-in-out infinite 1s;
+  }
+  .animate-float-delay-2 {
+    animation: float 6s ease-in-out infinite 2s;
+  }
+
+  /* Auto-scroll marquee for services */
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+  }
+
+  /* =========================================================
+     HERO CSS (from royal-home-HERO-FINAL-no-nav.html)
+  ========================================================== */
+
+  /* Ken Burns */
+  @keyframes kenburns { 0%{transform:scale(1);} 100%{transform:scale(1.08);} }
+
+  /* =========================================================
+     Scroll reveal — drives <Reveal> (src/components/Reveal.tsx),
+     the framer-motion-free entrance used on the eager home/404
+     path. JS toggles .is-visible when the element scrolls in.
+  ========================================================== */
+  .reveal {
+    opacity: 0;
+    transform: translate(var(--reveal-x, 0px), var(--reveal-y, 24px));
+    transition: opacity 0.55s ease, transform 0.55s ease;
+    will-change: opacity, transform;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+  .reveal-hover.is-visible { transition: opacity 0.55s ease, transform 0.3s ease; }
+  .reveal-hover.is-visible:hover { transform: scale(1.02); }
+
+  /* Mount-time entrance + float loops for the 404 page (also framer-free). */
+  @keyframes revealUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+  @keyframes revealScale { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+  @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--float-dist, -8px)); } }
+  .anim-reveal-up { opacity: 0; animation: revealUp 0.5s ease forwards; }
+  .anim-reveal-scale { opacity: 0; animation: revealScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  .anim-float { animation: floatY 3s ease-in-out infinite; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .reveal.is-visible { opacity: 1; transform: none; transition: none; }
+    .anim-reveal-up, .anim-reveal-scale { opacity: 1; animation: none; }
+    .anim-float { animation: none; }
+  }
+
+  /* Card animations */
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(50px) rotate(var(--rot-start, 0deg)) scale(.92); }
+    to   { opacity: 1; transform: translateY(0) rotate(var(--rot-end, 0deg)) scale(1); }
+  }
+  @keyframes cardFloat {
+    0%,100% { transform: translateY(0) rotate(var(--rot-end, 0deg)); }
+    50%     { transform: translateY(-9px) rotate(var(--rot-end, 0deg)); }
+  }
+  @keyframes mobBob {
+    0%,100% { transform: translateY(0); }
+    50%     { transform: translateY(-7px); }
+  }
+
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .hero-bg-parallax {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -10%;
+    height: 120%;
+    will-change: transform;
+  }
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 60%;
+    animation: kenburns 28s ease-in-out infinite alternate;
+  }
+
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    opacity: var(--overlay-strength, 0.82);
+    background:
+      radial-gradient(120% 60% at 50% 0%, rgba(0,0,0,0.55) 0%, transparent 55%),
+      linear-gradient(180deg, rgba(6,9,8,0.86) 0%, rgba(8,10,9,0.5) 30%, rgba(6,8,7,0.68) 65%, rgba(4,5,5,0.94) 100%);
+  }
+
+  .hero-flat-bg {
+    position: absolute;
+    inset: 0;
+    display: none;
+    background: radial-gradient(140% 110% at 12% -10%, #1c4a37 0%, #0f3527 45%, #081d15 100%);
+  }
+  .hero.variant-flat-brand .hero-bg,
+  .hero.variant-flat-brand .hero-overlay { display: none; }
+  .hero.variant-flat-brand .hero-flat-bg { display: block; }
+
+  .hero-content {
+    position: relative;
+    z-index: 4;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 36px 20px 56px;
+  }
+  /* On mobile the fixed header floats over the hero — anchor content below
+     it instead of relying on vertical centering, which on short viewports
+     let the headline start underneath the header. */
+  @media (max-width: 1399px) {
+    .hero-content {
+      justify-content: flex-start;
+      padding-top: 96px;
+    }
+  }
+  .headline {
+    font-weight: 900;
+    line-height: 1.06;
+    font-size: clamp(2rem, 5.2vw, 3.9rem);
+    letter-spacing: 0.3px;
+    font-family: var(--font-display, 'Unbounded'), 'Unbounded Fallback', 'Inter', sans-serif;
+    color: #ffffff;
+  }
+  .headline .l2 {
+    background: linear-gradient(100deg, var(--gold-light), var(--gold) 60%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtext {
+    margin: 20px auto 32px;
+    max-width: 560px;
+    color: rgba(255,255,255,0.92);
+    text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+    font-size: 15.5px;
+    line-height: 1.6;
+  }
+  .cta-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn-hero {
+    font-size: 14.5px;
+    font-weight: 700;
+    padding: 15px 30px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: .2s;
+    font-family: var(--font-display, 'Unbounded'), 'Unbounded Fallback', sans-serif;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-hero-primary {
+    background: var(--gold);
+    color: var(--ink);
+  }
+  .btn-hero-primary:hover {
+    background: var(--gold-light);
+    transform: translateY(-2px);
+  }
+  .btn-hero-secondary {
+    background: transparent;
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .btn-hero-secondary:hover {
+    border-color: var(--white);
+    transform: translateY(-2px);
+  }
+
+  .search-bar {
+    background: var(--white);
+    border-radius: 20px;
+    padding: 10px;
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    box-shadow: 0 24px 50px rgba(0,0,0,0.45);
+    width: 100%;
+    max-width: 760px;
+  }
+  .search-field {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    border-radius: 14px;
+    cursor: pointer;
+    color: var(--ink);
+    transition: .2s;
+    background: transparent;
+    border: none;
+    font-size: 14.5px;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .search-field:hover { background: #f4f6f4; }
+  .search-field svg { flex-shrink: 0; color: var(--gold); }
+  .search-divider { width: 1px; background: #e7ebe8; margin: 8px 0; }
+  .search-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--gold);
+    color: var(--ink);
+    border: none;
+    border-radius: 14px;
+    padding: 0 26px;
+    font-weight: 700;
+    font-size: 14.5px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: .2s;
+    font-family: 'Inter', sans-serif;
+  }
+  .search-btn:hover { background: var(--gold-light); }
+
+  @media (max-width: 700px) {
+    .search-bar { flex-direction: column; border-radius: 18px; }
+    .search-divider { display: none; }
+    .search-btn { padding: 15px; justify-content: center; }
+  }
+
+  /* Floating property cards (desktop) */
+  .float-card-wrap {
+    position: absolute;
+    z-index: 6;
+    display: none;
+  }
+  .hero.cards-on .float-card-wrap { display: block; }
+  @media (max-width: 1399px) { .float-card-wrap { display: none !important; } }
+
+  .float-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    width: 212px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.4);
+    opacity: 0;
+    animation: cardIn .9s cubic-bezier(.2,.8,.25,1) forwards;
+    position: relative;
+  }
+  .float-card.settled {
+    opacity: 1;
+    animation: cardFloat 6.5s ease-in-out infinite;
+  }
+  .float-card:hover { border-color: rgba(255,255,255,0.34); }
+  .card-1 { top: 100px; right: 4.5%; --rot-start: -13deg; --rot-end: -3deg; }
+  .card-2 { bottom: 88px; left: 4%; --rot-start: 14deg; --rot-end: 3deg; }
+
+  .card-img { width: 100%; height: 114px; object-fit: cover; display: block; background: #1a2b23; }
+  .card-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--gold);
+    color: var(--ink);
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 999px;
+    z-index: 2;
+  }
+  /* Solid dark scrim behind the text, independent of the backdrop-filter blur
+     (which samples the hero photo behind the card, not the card's own image) —
+     the old 10% white glass tint barely dimmed a bright photo, so white/light
+     text was sitting almost directly on it and hard to read. */
+  .card-body { padding: 13px 15px 16px; text-align: left; background: rgba(8, 11, 10, 0.78); }
+  .card-title { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--white); }
+  .card-price { font-family: var(--font-display, 'Unbounded'), 'Unbounded Fallback', sans-serif; font-size: 16px; font-weight: 800; color: var(--gold-light); margin: 5px 0 6px; }
+  .card-meta { font-size: 11.5px; color: var(--sage-dim); }
+  .card-hint { font-size: 11px; font-weight: 700; color: var(--gold-light); margin-top: 8px; }
+
+  /* Mobile floating card.
+     height задан СРАЗУ (примерно равен фактической высоте карточки): дети
+     абсолютные и высоты не дают, а JS-замер (Home.tsx, mobHeightLocked)
+     происходит только после гидрации — на медленных телефонах контент под
+     hero успевал отрисоваться вплотную и затем «рывком» раздвигался. Резерв
+     места + мягкий transition убирают скачок; JS затем лишь уточняет высоту. */
+  .mob-card-wrap {
+    display: none;
+    width: 210px;
+    height: 212px;
+    margin: 2px auto 22px;
+    position: relative;
+    overflow: hidden;
+    animation: mobBob 5.5s ease-in-out infinite;
+    transition: height 0.35s ease;
+  }
+  @media (max-width: 1399px) { .hero.cards-on .mob-card-wrap { display: block; } }
+
+  .mob-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(9,15,12,0.58);
+    border: 1px solid rgba(255,255,255,0.22);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.22);
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+  @keyframes mobCardEnter {
+    from { opacity: 0; transform: translateY(60px) rotate(var(--enter-rot, 5deg)); }
+    to   { opacity: 1; transform: translateY(0) rotate(var(--rest-rot, 3deg)); }
+  }
+  @keyframes mobCardExit {
+    from { opacity: 1; transform: translateY(0) rotate(var(--rest-rot, 3deg)); }
+    to   { opacity: 0; transform: translateY(-70px) rotate(var(--exit-rot, 5deg)); }
+  }
+  .mob-card.entering { animation: mobCardEnter .5s cubic-bezier(.2,.8,.25,1) forwards; }
+  .mob-card.exiting { animation: mobCardExit .38s cubic-bezier(.4,0,.7,1) forwards; z-index: 2; }
+  .mob-card .card-img { height: 106px; }
+  .mob-card .card-body { padding: 12px 14px 14px; text-align: left; }
+  .mob-card .card-title { font-size: 12.5px; font-weight: 600; color: #ffffff; }
+  .mob-card .card-price { font-size: 15px; font-weight: 800; color: var(--gold-light); margin: 4px 0 5px; }
+  .mob-card .card-meta { font-size: 11px; color: #cddbd2; }
+  .mob-card .card-badge { font-size: 10px; padding: 4px 9px; top: 9px; left: 9px; }
+  .mob-card .card-hint { font-size: 10px; font-weight: 700; color: var(--gold-light); margin-top: 6px; }
+
+  @media (max-width: 360px) { .mob-card-wrap { width: 180px; } }
+
+  /* prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-bg { animation: none !important; }
+    .float-card, .mob-card { opacity: 1 !important; transform: none !important; animation: none !important; }
+    .mob-card-wrap { animation: none !important; }
+  }
+}
+
+/* ===== Premium button + glass-card styles (site-wide) ===== */
+.btn-royal {
+  background: linear-gradient(135deg, #26694b 0%, #1a4d3a 45%, #10331f 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(15, 46, 34, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  transition: all 0.25s ease;
+}
+.btn-royal:hover {
+  filter: brightness(1.07);
+  box-shadow: 0 6px 24px rgba(15, 46, 34, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+.btn-royal:active { transform: translateY(0) scale(0.98); }
+
+.btn-gold {
+  background: linear-gradient(135deg, #ffd97a 0%, #f6c453 55%, #e3ab35 100%);
+  color: #0f2e22;
+  box-shadow: 0 4px 16px rgba(246, 196, 83, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: all 0.25s ease;
+}
+.btn-gold:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 6px 24px rgba(246, 196, 83, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+.btn-gold:active { transform: translateY(0) scale(0.98); }
+
+/* Frosted-glass service card */
+.glass-card {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.65) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 28px rgba(15, 46, 34, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: all 0.3s ease;
+}
+/* Ховер только там, где есть настоящая мышь: на тач-экранах :hover «залипает»
+   после тапа, и золотая рамка выглядела как сломанное выделение. Рамку убрали
+   совсем — оставили нейтральный подъём с тенью. */
+@media (hover: hover) {
+  .glass-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgba(15, 46, 34, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+}
+
+/* ===== Apple-style "Liquid Glass" icon tiles (brand-tinted) =====
+   Reference: rounded-square glass badges with a soft colourful glow behind
+   and a diagonal specular highlight — used for service icons, contact icons,
+   and the mobile bottom nav. Two tint variants alternate (emerald / gold) so
+   a row of icons doesn't read as one flat block. */
+.glass-icon-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.32) 100%);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* Diagonal glass highlight streak, clipped to the tile's own rounded shape */
+.glass-icon-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.65) 0%, transparent 45%);
+  pointer-events: none;
+}
+/* Soft brand-coloured glow sitting behind the glass, blurred so it reads as
+   light bleeding through rather than a hard-edged blob */
+.glass-icon-tile::after {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  z-index: -1;
+  border-radius: inherit;
+  filter: blur(18px);
+  opacity: 0.55;
+}
+.glass-icon-tile--emerald::after { background: radial-gradient(circle, rgba(26, 77, 58, 0.55), transparent 70%); }
+.glass-icon-tile--gold::after { background: radial-gradient(circle, rgba(246, 196, 83, 0.55), transparent 70%); }
+
+@media (hover: hover) {
+  .glass-icon-tile:hover {
+    transform: translateY(-3px) scale(1.04);
+  }
+}
+
+/* Frosted-glass bottom nav bar + its active-item glow (mobile) */
+.glass-nav-bar {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.6) 100%);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 32px rgba(15, 46, 34, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+/* Bold solid pill, not a faint tint — matches the reference's clearly-lit
+   active tab instead of reading as "barely different from inactive". */
+.glass-nav-active {
+  background: linear-gradient(135deg, #26694b 0%, #1a4d3a 100%);
+  box-shadow: 0 4px 14px rgba(26, 77, 58, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Glass sheen used on the promo banners */
+.banner-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 12% 0%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 35%);
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Блоки статьи блога (собираются в api/lib/article-layout.ts,
+   разрешены в api/lib/sanitize-html.ts). Стили здесь, а не
+   утилитами Tailwind: HTML статьи приходит из базы строкой,
+   классы к нему дописать нельзя.
+   ───────────────────────────────────────────────────────────── */
+
+/* «Коротко» — ответ статьи за десять секунд, первое, что видит читатель
+   и первое, что забирает ИИ-поисковик. */
+.article-takeaways {
+  margin: 0 0 1.75rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 1rem;
+  background: #f6faf8;
+  border: 1px solid #d9ece3;
+}
+.article-takeaways-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a4d3a;
+}
+.article-takeaways ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+.article-takeaways li {
+  margin-bottom: 0.4rem;
+  color: #374151;
+}
+.article-takeaways li:last-child { margin-bottom: 0; }
+
+/* Плитки с ключевыми цифрами. auto-fit: на телефоне встают в один столбец
+   сами, без отдельной медиа-точки. */
+.article-key-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  /* Ряды одной высоты: иначе подписи разной длины делают сетку ступенчатой —
+     на телефоне это первое, что бросается в глаза. */
+  grid-auto-rows: 1fr;
+  gap: 0.75rem;
+  margin: 0 0 2rem;
+}
+.article-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.9rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+.article-fact-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #1a4d3a;
+}
+.article-fact-label {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: #6b7280;
+}
+
+/* Вынесенная мысль: крупно, с зелёной чертой слева. */
+.article-quote {
+  margin: 2rem 0;
+  padding: 0.35rem 0 0.35rem 1.25rem;
+  border-left: 3px solid #1a4d3a;
+  font-size: 1.15rem;
+  line-height: 1.55;
+  font-weight: 600;
+  color: #111827;
+  font-style: normal;
+}
+
+/* Картинка внутри статьи с подписью. */
+.article-figure {
+  margin: 2rem 0;
+}
+.article-figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 1rem;
+  display: block;
+}
+.article-figure figcaption {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* Таблицы сравнения районов: без этого приходят «голыми» и разъезжаются на телефоне. */
+.article-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.75rem 0;
+  font-size: 0.9rem;
+}
+.article-body th,
+.article-body td {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+.article-body th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #111827;
+}
+.article-body a {
+  color: #1a4d3a;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Оглавление: у Google это шанс получить в выдаче дополнительные ссылки
+   прямо на разделы статьи, у читателя — понять, стоит ли читать. */
+.article-toc {
+  margin: 0 0 2rem;
+  padding: 1.1rem 1.35rem;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  background: #fbfbfb;
+}
+.article-toc-title {
+  margin: 0 0 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+.article-toc ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: toc;
+}
+.article-toc li {
+  counter-increment: toc;
+  margin-bottom: 0.35rem;
+  padding-left: 1.6rem;
+  position: relative;
+  line-height: 1.4;
+}
+.article-toc li::before {
+  content: counter(toc) '.';
+  position: absolute;
+  left: 0;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+.article-toc li:last-child { margin-bottom: 0; }
+.article-toc a {
+  color: #374151;
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+.article-toc a:hover { color: #1a4d3a; text-decoration: underline; }
+
+/* Заголовок не должен прятаться под шапкой сайта при переходе по оглавлению. */
+.article-body h2[id] { scroll-margin-top: 90px; }
+
+/* Карточка объекта внутри статьи: человек читает про цены и тут же видит
+   живой объект — с фотографией, ценой и переходом в каталог. */
+.article-listing {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin: 1.5rem 0;
+  padding: 0.85rem;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  text-decoration: none !important;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.article-listing:hover {
+  border-color: #d9ece3;
+  box-shadow: 0 8px 24px rgba(15, 46, 34, 0.08);
+}
+.article-listing img {
+  width: 116px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+}
+.article-listing-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.article-listing-title {
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.article-listing-meta {
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+.article-listing-price {
+  font-weight: 700;
+  color: #1a4d3a;
+}
+.article-listing-cta {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1a4d3a;
+}
+@media (max-width: 480px) {
+  .article-listing img { width: 84px; height: 64px; }
+}
+
+/* ── Мобильные правки статьи (проверено на живой статье, ширина 320–438) ── */
+
+/* Место под картинку резервируется до загрузки: без этого lazy-картинка
+   подгружалась и толкала текст вниз — прыжок вёрстки, который заодно портит
+   оценку Core Web Vitals. Соотношение 16:9 — в нём и рисуются врезки. */
+.article-figure img {
+  aspect-ratio: 16 / 9;
+}
+
+/* Заголовок объекта в карточке рвался многоточием уже на «4-комнатная в
+   центре». Две строки вместо обрезки: на телефоне место есть, а обрезанное
+   название объекту не помогает. */
+.article-listing-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: unset;
+}
+
+@media (max-width: 480px) {
+  /* «13 420 сомони» не влезало в плитку и вылезало за её край: разряды
+     разделены неразрывным пробелом, поэтому строка не переносится. */
+  .article-fact-value {
+    font-size: 1.15rem;
+  }
+  .article-key-facts {
+    grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  }
+}
+
+/* Таблица сравнения районов на телефоне не влезает: четыре колонки требуют
+   ~420 px при ширине экрана 360. Раньше она просто вылезала за край и тянула
+   горизонтальную прокрутку ВСЕЙ страницы. Теперь прокручивается сама таблица. */
+/* Таблица прокручивается ВНУТРИ своей обёртки, а сама остаётся таблицей.
+   Первая попытка делала <thead> и <tbody> отдельными таблицами — ширины колонок
+   стали считаться независимо, и шапка разъехалась с данными (владелец заметил
+   это на телефоне: «столбцы съехали»). Обёртку навешивает страница статьи.
+   ───────────────────────────────────────────────────────────── */
+.article-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 1.75rem 0;
+}
+.article-table > table {
+  margin: 0;
+  min-width: 420px;
+}
+@media (max-width: 640px) {
+  .article-body table {
+    font-size: 0.82rem;
+  }
+}
+
+
+/* Оглавление из семи разделов занимало на телефоне 474 px — почти экран целиком
+   перед первым абзацем. Плотнее: тот же список, ~на четверть ниже. */
+@media (max-width: 480px) {
+  .article-toc {
+    padding: 0.9rem 1.1rem;
+  }
+  .article-toc li {
+    margin-bottom: 0.25rem;
+    padding-left: 1.4rem;
+  }
+  .article-toc a {
+    font-size: 0.86rem;
+  }
+}

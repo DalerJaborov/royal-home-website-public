@@ -1,0 +1,63 @@
+{
+  "id": "/",
+  "name": "ROYAL HOME — Недвижимость в Душанбе",
+  "short_name": "ROYAL HOME",
+  "description": "Агентство недвижимости ROYAL HOME: квартиры, новостройки и вторичное жильё в Душанбе.",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1a4d3a",
+  "icons": [
+    {
+      "src": "/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Каталог квартир",
+      "short_name": "Каталог",
+      "description": "Все объекты в продаже",
+      "url": "/#/listings",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Избранное",
+      "short_name": "Избранное",
+      "description": "Сохранённые объекты",
+      "url": "/#/favorites",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Продать квартиру",
+      "short_name": "Продать",
+      "description": "Оставить заявку на продажу или срочный выкуп",
+      "url": "/#/sell",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Контакты",
+      "short_name": "Контакты",
+      "description": "Позвонить или написать нам",
+      "url": "/#/contacts",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

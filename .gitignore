@@ -1,0 +1,63 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.production.local
+# Database
+*.db
+*.sqlite
+*.sqlite3
+db/migrations/*.sql
+
+# User-uploaded photos (runtime data, not source)
+/uploads/
+# Non-public runtime data (Instagram token, etc.)
+/data/
+# TypeScript cache
+*.tsbuildinfo
+# Build outputs
+dist/
+build/
+# Test coverage
+coverage/
+.nyc_output/
+
+# Pre-optimization image backups (safe to delete once verified live)
+/_original_images_backup/
+/_unused_images_backup/
+
+# Private runtime data must never enter the public source repository.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.dump
+.env.*
+!.env.example
+!.env.*.example

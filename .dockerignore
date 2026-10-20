@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+*.swp
+*.log
+.env
+.env.*
+!.env.example
+uploads
+data
+.playwright-cli
+_original_images_backup
+_unused_images_backup
