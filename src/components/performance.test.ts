@@ -62,8 +62,6 @@ describe('self-hosted fonts', () => {
   const sourceUrls = [...css.matchAll(/url\((\/fonts\/[^)]+)\)/g)].map((match) => match[1]);
 
   it('shares repeated binaries while keeping every weight and Tajik glyph subset', () => {
-    expect(rules).toHaveLength(35);
-    expect(new Set(sourceUrls).size).toBe(6);
     for (const family of ['Inter', 'Unbounded']) {
       const faces = rules.filter((rule) => rule.includes(`font-family: '${family}'`));
       expect(faces.some((rule) => rule.includes('U+0460-052F'))).toBe(true);
@@ -71,6 +69,14 @@ describe('self-hosted fonts', () => {
       expect([...weights].sort()).toEqual(family === 'Inter'
         ? ['300', '400', '500', '600', '700']
         : ['400', '500', '600', '700', '800', '900']);
+      // Each weight retains the extended Cyrillic (including Tajik), Cyrillic,
+      // core Latin and full Latin subsets. All weights reuse four binaries.
+      const familyUrls = faces.flatMap(face => [...face.matchAll(/url\((\/fonts\/[^)]+)\)/g)].map(match => match[1]));
+      expect(faces).toHaveLength(weights.size * 4);
+      expect(new Set(familyUrls).size).toBe(4);
+      for (const url of new Set(familyUrls)) {
+        expect(readFileSync(path.join(root, 'public', url)).length).toBeGreaterThan(0);
+      }
     }
     expect(css).toContain('size-adjust: 107.12%');
     expect(css).toContain('size-adjust: 137.63%');
