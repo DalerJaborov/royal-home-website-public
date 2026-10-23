@@ -18,8 +18,23 @@ async function cspWith(pixelId: string | undefined) {
     script: directive("script-src"),
     img: directive("img-src"),
     connect: directive("connect-src"),
+    media: directive("media-src"),
   };
 }
+
+describe("CSP and listing video", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("lets the listing page play the CRM-hosted mp4 and nothing broader", async () => {
+    const { media } = await cspWith(undefined);
+    expect(media).toContain("'self'");
+    expect(media).toContain("https://crm.royalhome.tj");
+    expect(media).toContain("https://*.cdninstagram.com");
+    expect(media).not.toContain("http:");
+    expect(media).not.toContain("data:");
+    expect(media).not.toContain("https://* ");
+  }, 60_000);
+});
 
 describe("CSP and the Meta Pixel", () => {
   afterEach(() => vi.unstubAllEnvs());

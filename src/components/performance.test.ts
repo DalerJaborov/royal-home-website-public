@@ -41,6 +41,35 @@ describe('image loading without losing catalog navigation', () => {
     expect(html).toContain('Следующее фото');
   });
 
+  it('mounts the listing video as the second slide without downloading it before play', () => {
+    const photos = ['/uploads/v-0.webp', '/uploads/v-1.webp', '/uploads/v-2.webp'];
+    const video = 'https://crm.royalhome.tj/api/v1/public/property-video/119.mp4?v=ab12cd34';
+    const html = renderToStaticMarkup(createElement(SwipeableGallery, { images: photos, videoUrl: video }));
+    const tag = html.match(/<video[^>]*>/)![0];
+    expect(tag).toContain(`src="${video.replace(/&/g, '&amp;')}"`);
+    expect(tag).toContain('preload="none"');
+    expect(tag).toContain('poster="/uploads/v-0.webp"');
+    expect(tag).toContain('aria-label="Видео объекта"');
+    expect(tag).toContain('controls');
+    expect(tag).toContain('playsInline');
+    // фото 1, ролик, фото 2: в ленте миниатюр кнопка ролика между первой и второй
+    expect(html.indexOf('/uploads/v-0.webp')).toBeLessThan(html.indexOf('<video'));
+    const videoThumb = html.lastIndexOf('aria-label="Видео объекта"');
+    expect(html.indexOf('Миниатюра 1')).toBeLessThan(videoThumb);
+    expect(videoThumb).toBeLessThan(html.indexOf('Миниатюра 2'));
+    // 3 миниатюры фото + миниатюра ролика (первое фото под значком play)
+    expect(html.match(/aria-pressed=/g)).toHaveLength(4);
+    expect(html).toContain('3  фото');
+    expect(html).toContain('· видео');
+  });
+
+  it('shows a lone video when a listing has no photos', () => {
+    const html = renderToStaticMarkup(createElement(SwipeableGallery, { images: [], videoUrl: 'https://crm.royalhome.tj/v.mp4' }));
+    expect(html).toContain('<video');
+    expect(html).not.toContain('poster=');
+    expect(html.match(/aria-pressed=/g)).toHaveLength(1);
+  });
+
   it('prioritizes only the catalog cover and leaves ordinary homepage galleries lazy', () => {
     const photos = ['/uploads/cover.webp', '/uploads/second.webp', '/uploads/third.webp'];
     const catalogHtml = renderToStaticMarkup(createElement(CardPhotoCarousel, { photos, priority: true }));

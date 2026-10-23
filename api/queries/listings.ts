@@ -97,6 +97,7 @@ export async function findAllListings(opts?: {
       lat: listings.lat,
       lng: listings.lng,
       instagramUrl: listings.instagramUrl,
+      videoUrl: listings.videoUrl,
       metaTitle: listings.metaTitle,
       metaDescription: listings.metaDescription,
       h1: listings.h1,
@@ -173,6 +174,7 @@ export async function findListingById(id: number) {
       lat: listings.lat,
       lng: listings.lng,
       instagramUrl: listings.instagramUrl,
+      videoUrl: listings.videoUrl,
       metaTitle: listings.metaTitle,
       metaDescription: listings.metaDescription,
       h1: listings.h1,
@@ -434,6 +436,8 @@ export async function upsertListingByExternalId(
     lat?: number;
     lng?: number;
     instagramUrl?: string;
+    /** Ролик объекта с хоста CRM; null = у объекта нет публичного ролика (очистить). */
+    videoUrl?: string | null;
     /** Номер карточки CRM (Property.shortId); undefined = не менять. */
     crmShortId?: number;
   }
@@ -503,6 +507,14 @@ export async function setListingCrmShortId(identity: { id: number } | { external
   const db = getDb()!;
   const where = "id" in identity ? eq(listings.id, identity.id) : eq(listings.externalId, identity.externalId);
   await db.update(listings).set({ crmShortId }).where(where);
+}
+
+/** Stores (or clears, with null) the CRM-hosted video of an existing row. */
+export async function setListingVideoUrl(identity: { id: number } | { externalId: string }, videoUrl: string | null) {
+  if (!isDbAvailable()) return;
+  const db = getDb()!;
+  const where = "id" in identity ? eq(listings.id, identity.id) : eq(listings.externalId, identity.externalId);
+  await db.update(listings).set({ videoUrl }).where(where);
 }
 
 /** Updates only supplied CRM facts, without publishing a hidden row or replacing photos/SEO. */

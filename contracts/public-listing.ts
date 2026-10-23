@@ -31,6 +31,7 @@ export interface PublicListingSource {
   seoDesc: string | null;
   details?: Record<string, string> | null;
   instagramUrl?: string | null;
+  videoUrl?: string | null;
   metaTitle?: string | null;
   metaDescription?: string | null;
   h1?: string | null;
@@ -52,6 +53,7 @@ export interface PublicListing extends PublicListingSource {
   description: string | null;
   details: Record<string, string> | null;
   instagramUrl: string | null;
+  videoUrl: string | null;
   metaTitle: string | null;
   metaDescription: string | null;
   h1: string | null;
@@ -81,7 +83,7 @@ export function projectPublicListing(row: PublicListingSource): PublicListing {
     crmShortId: row.crmShortId ?? null,
     images: row.images, imageUrls: row.imageUrls ?? null,
     description: row.description ?? null, seoDesc: row.seoDesc, details,
-    instagramUrl: row.instagramUrl ?? null, metaTitle: row.metaTitle ?? null,
+    instagramUrl: row.instagramUrl ?? null, videoUrl: row.videoUrl ?? null, metaTitle: row.metaTitle ?? null,
     metaDescription: row.metaDescription ?? null, h1: row.h1 ?? null,
     descriptionTj: row.descriptionTj ?? null, metaTitleTj: row.metaTitleTj ?? null,
     metaDescriptionTj: row.metaDescriptionTj ?? null, h1Tj: row.h1Tj ?? null,

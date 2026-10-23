@@ -27,6 +27,7 @@ export interface MemoryListing {
   lat?: number | null;
   lng?: number | null;
   instagramUrl?: string | null;
+  videoUrl?: string | null;
   metaTitle?: string | null;
   metaDescription?: string | null;
   h1?: string | null;
@@ -289,6 +290,7 @@ export function memoryCreateListing(data: MemoryListingInput): number {
     lat: data.lat ?? null,
     lng: data.lng ?? null,
     instagramUrl: data.instagramUrl ?? null,
+    videoUrl: null,
     metaTitle: data.metaTitle ?? null,
     metaDescription: data.metaDescription ?? null,
     h1: data.h1 ?? null,

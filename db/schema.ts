@@ -101,6 +101,9 @@ export const listings = mysqlTable("listings", {
   lng: decimal("lng", { precision: 11, scale: 7, mode: "number" }),
   // Link to an Instagram Reel/post with a video tour of the property.
   instagramUrl: varchar("instagram_url", { length: 500 }),
+  // Готовый ролик объекта (mp4 с хоста CRM) — вторым слайдом галереи страницы объекта.
+  // Приходит в payload синка (api/crm-sync-router.ts); NULL = у объекта нет публичного ролика.
+  videoUrl: varchar("video_url", { length: 500 }),
   metaTitle: varchar("meta_title", { length: 255 }),
   metaDescription: text("meta_description"),
   h1: varchar("h1", { length: 255 }),
