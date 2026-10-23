@@ -19,6 +19,7 @@ interface ServerListing {
   floor: string | null;
   totalFloors?: number | null;
   updatedAt?: Date | string;
+  createdAt?: Date | string;
   type: 'Новостройки' | 'Вторичка' | null;
   stage: string | null;
   repair: string | null;
@@ -60,6 +61,7 @@ export function mapServerListing(l: ServerListing): Listing {
     floor: l.floor ?? '',
     totalFloors: l.totalFloors ?? undefined,
     updatedAt: l.updatedAt instanceof Date ? l.updatedAt.toISOString() : l.updatedAt,
+    createdAt: l.createdAt instanceof Date ? l.createdAt.toISOString() : l.createdAt,
     type: l.category === 'HOUSE' || l.category === 'LAND' ? '' : l.type ?? '',
     stage: l.stage ?? '',
     repair: l.repair ?? '',

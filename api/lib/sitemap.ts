@@ -11,6 +11,7 @@ import { SERVICE_SEO } from "@contracts/services-seo";
 import { localizedPath, publishedAlternates, type PublicLocale } from '@contracts/public-i18n';
 import { completedLocalePages, getPublicArticleTranslation, getPublicDictionary } from './public-translations';
 import { legacyArticleTranslated, type LegacyArticleSource } from '@contracts/legacy-article-i18n';
+import { dushanbeIso } from '@contracts/listing-jsonld';
 import { DISTRICT_PAGES, districtListings } from '@contracts/district-catalog';
 
 const SITE_ORIGIN = "https://royalhome.tj";
@@ -33,20 +34,40 @@ function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function urlTag(path: string, lastmod?: Date | null, alternates: ReturnType<typeof publishedAlternates> = []): string {
+/** Видео-расширение карты сайта (https://developers.google.com/search/docs/crawling-indexing/sitemaps/video-sitemaps):
+ * обязательны thumbnail_loc, title, description и content_loc либо player_loc. */
+interface SitemapVideo { thumbnail: string; title: string; description: string; contentUrl: string; publishedAt?: Date | null }
+
+function videoTag(video: SitemapVideo): string {
+  const date = dushanbeIso(video.publishedAt);
+  return `<video:video><video:thumbnail_loc>${esc(video.thumbnail)}</video:thumbnail_loc><video:title>${esc(video.title.slice(0, 100))}</video:title><video:description>${esc(video.description.slice(0, 2048))}</video:description><video:content_loc>${esc(video.contentUrl)}</video:content_loc>${date ? `<video:publication_date>${date}</video:publication_date>` : ""}</video:video>`;
+}
+
+/** Ролик объекта для карты сайта; без обложки или ссылки блок невалиден — не выводим. */
+function listingVideo(listing: { title: string; h1?: string | null; metaDescription?: string | null; seoDesc?: string | null; videoUrl?: string | null; imageUrls?: string[] | null; createdAt?: Date | null }): SitemapVideo | undefined {
+  const thumbnail = listing.imageUrls?.[0];
+  if (!listing.videoUrl || !thumbnail) return undefined;
+  const title = listing.h1?.trim() || listing.title;
+  return {
+    thumbnail: new URL(thumbnail, SITE_ORIGIN).href, title, contentUrl: listing.videoUrl,
+    description: (listing.metaDescription || listing.seoDesc || title).trim(), publishedAt: listing.createdAt,
+  };
+}
+
+function urlTag(path: string, lastmod?: Date | null, alternates: ReturnType<typeof publishedAlternates> = [], video?: SitemapVideo): string {
   const lm = lastmod ? `<lastmod>${lastmod.toISOString().slice(0, 10)}</lastmod>` : "";
-  return `<url><loc>${esc(SITE_ORIGIN + path)}</loc>${lm}${alternates.map(alternate => `<xhtml:link rel="alternate" hreflang="${alternate.language}" href="${esc(SITE_ORIGIN + alternate.path)}" />`).join('')}</url>`;
+  return `<url><loc>${esc(SITE_ORIGIN + path)}</loc>${lm}${alternates.map(alternate => `<xhtml:link rel="alternate" hreflang="${alternate.language}" href="${esc(SITE_ORIGIN + alternate.path)}" />`).join('')}${video ? videoTag(video) : ""}</url>`;
 }
 
 export async function buildSitemapXml(): Promise<string> {
   const completed = await completedLocalePages();
   const urls: string[] = [];
-  const append = (basePath: string, lastmod?: Date | null, available?: PublicLocale[]) => {
+  const append = (basePath: string, lastmod?: Date | null, available?: PublicLocale[], video?: SitemapVideo) => {
     const gates = available ? {
       tg: available.includes('tg') ? [basePath] : [], en: available.includes('en') ? [basePath] : [],
     } : completed;
     const alternates = publishedAlternates(basePath, gates);
-    urls.push(urlTag(basePath, lastmod, alternates));
+    urls.push(urlTag(basePath, lastmod, alternates, video));
     for (const alternate of alternates) if (alternate.language !== 'ru') urls.push(urlTag(localizedPath(basePath, alternate.language), lastmod, alternates));
   };
   STATIC_PATHS.forEach(path => append(path));
@@ -61,7 +82,7 @@ export async function buildSitemapXml(): Promise<string> {
   // An outage must produce a retryable HTTP error, not a successful sitemap
   // that silently drops the catalog or blog. The route owns the 503 response.
   const [listings, rawPosts] = await Promise.all([findAllListings(), getCmsEntry("blogPosts")]);
-  for (const listing of listings) append(`/listing/${listing.id}`, listing.updatedAt);
+  for (const listing of listings) append(`/listing/${listing.id}`, listing.updatedAt, undefined, listingVideo(listing));
   for (const district of DISTRICT_PAGES) {
     const rows = districtListings<(typeof listings)[number]>(listings, district);
     if (rows.length) append(`/kvartiry/${district.slug}`, new Date(Math.max(...rows.map(row => row.updatedAt.getTime()))));
@@ -91,5 +112,5 @@ export async function buildSitemapXml(): Promise<string> {
     if (items.length === 0 || offset + items.length >= total) break;
   }
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls.join("\n")}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n${urls.join("\n")}\n</urlset>\n`;
 }

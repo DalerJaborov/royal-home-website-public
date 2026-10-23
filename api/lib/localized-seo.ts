@@ -99,7 +99,7 @@ export async function localizeHead(requestPath: string, original: Head): Promise
     if (locale === 'tg') title = listingSeoTitle(meta.title, listing.crmShortId);
     const text = locale === 'tg' ? tajikPropertyDescription(listing) : meta.description;
     content = `<p>${esc(text).replace(/\n/g, '<br />')}</p>${listingFactsHtml(listing, tx)}${contactActionsHtml(locale, listing)}<p><a href="${localizedPath('/listings', locale)}">${locale === 'tg' ? 'Ҳамаи пешниҳодҳо' : 'All properties'}</a></p>`;
-    jsonLd = listingJsonLd({ title: heading, description, images: (listing.imageUrls ?? []).map(url => new URL(url, ORIGIN).href), url: `${ORIGIN}${canonicalPath}`, price: listing.price, rooms: listing.rooms, area: listing.area, sold: listing.sold, category: listing.category });
+    jsonLd = listingJsonLd({ title: heading, description, images: (listing.imageUrls ?? []).map(url => new URL(url, ORIGIN).href), url: `${ORIGIN}${canonicalPath}`, price: listing.price, rooms: listing.rooms, area: listing.area, sold: listing.sold, category: listing.category, videoUrl: listing.videoUrl, uploadDate: listing.createdAt });
   } else if (sourceArticle) {
     const translation = await getPublicArticleTranslation(locale, sourceArticle);
     if (!translation) return { ...unavailable, status: 503 };

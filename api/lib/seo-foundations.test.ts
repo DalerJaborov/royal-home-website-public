@@ -51,6 +51,27 @@ describe("SEO public HTML", () => {
     expect(html).not.toContain('<div id="root"></div>');
   });
 
+  it("listing with a video carries VideoObject in the server HTML, escaped, and without it carries none", async () => {
+    const jsonLdOf = (html: string) => JSON.parse(/<script type="application\/ld\+json" id="seo-page-jsonld">([\s\S]*?)<\/script>/.exec(html)![1]);
+    const withVideo = {
+      ...listing!, title: 'Квартира </script><b>x</b>', floor: "7/9", location: "Сино, Душанбе",
+      imageUrls: ["/uploads/a.jpg"], videoUrl: "https://crm.royalhome.tj/api/v1/public/property-video/101.mp4?v=ab12",
+      createdAt: new Date("2026-10-01T20:30:00Z"),
+    } as unknown as Awaited<ReturnType<typeof findListingById>>;
+    vi.mocked(findListingById).mockResolvedValue(withVideo);
+    const html = injectSeo(template, await headForPath("/listing/101"));
+    expect(html.match(/<\/script>/g)).toHaveLength(1);
+    const video = jsonLdOf(html).video;
+    expect(video).toMatchObject({
+      "@type": "VideoObject", name: 'Квартира </script><b>x</b>', thumbnailUrl: ["https://royalhome.tj/uploads/a.jpg"],
+      uploadDate: "2026-10-02T01:30:00+05:00", contentUrl: "https://crm.royalhome.tj/api/v1/public/property-video/101.mp4?v=ab12",
+    });
+    expect(JSON.stringify(video)).not.toMatch(/Рудаки|7\/9/);
+
+    vi.mocked(findListingById).mockResolvedValue({ ...withVideo!, videoUrl: null } as typeof withVideo);
+    expect(jsonLdOf(injectSeo(template, await headForPath("/listing/101")))).not.toHaveProperty("video");
+  });
+
   it("unpublished objects are 404 without exposing listing text", async () => {
     vi.mocked(findListingById).mockResolvedValue({ ...listing!, published: false });
     const head = await headForPath("/listing/101");

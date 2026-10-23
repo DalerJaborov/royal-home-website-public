@@ -125,7 +125,8 @@ async function headForListing(id: number, url: string): Promise<Head | null> {
       contactActionsHtml('ru', listing) +
       '<p><a href="/listings">Все объекты недвижимости в Душанбе</a></p>'),
     jsonLd: listingJsonLd({ title: listing.h1?.trim() || listing.title, description, images,
-      url, price: listing.price, rooms: listing.rooms, area: listing.area, sold: listing.sold, category: listing.category }),
+      url, price: listing.price, rooms: listing.rooms, area: listing.area, sold: listing.sold, category: listing.category,
+      videoUrl: listing.videoUrl, uploadDate: listing.createdAt }),
   };
 }
 
