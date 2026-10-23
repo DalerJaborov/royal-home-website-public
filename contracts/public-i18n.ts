@@ -100,7 +100,7 @@ export function localizedStructuredData(value: unknown, locale: PublicLocale, st
       }
       return [key, visit(source)];
     }));
-    if (['Article', 'FAQPage', 'WebPage', 'RealEstateListing'].includes(String(object['@type']))) object.inLanguage = locale;
+    if (['Article', 'FAQPage', 'WebPage', 'RealEstateListing', 'VideoObject'].includes(String(object['@type']))) object.inLanguage = locale;
     return object;
   };
   return visit(value);

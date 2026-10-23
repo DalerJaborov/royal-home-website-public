@@ -439,7 +439,8 @@ export default function ListingDetailPage() {
     jsonLd: listing
       ? listingJsonLd({ title: englishSeo ? englishSeo.heading : locale === 'ru' ? listing.h1?.trim() || listing.title : listingTitle(listing, locale, tx), description: seoDescription,
           images: listing.photos?.map(absUrl) || [], url: listingUrl, price: listing.price,
-          rooms: listing.rooms, area: listing.area, sold: Boolean(listing.sold), category: listing.category })
+          rooms: listing.rooms, area: listing.area, sold: Boolean(listing.sold), category: listing.category,
+          videoUrl: listing.videoUrl, uploadDate: listing.createdAt })
       : null,
   });
 

@@ -12,6 +12,9 @@ const sitemap = await read('/sitemap.xml');
 if (sitemap.status !== 200) throw Error('Sitemap unavailable');
 const urls = [...sitemap.html.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1].replaceAll('&amp;', '&'));
 if (!urls.length || new Set(urls).size !== urls.length) throw Error('Empty or duplicate sitemap');
+// Страницы, которым карта сайта обещает ролик (video:video): на них обязан быть VideoObject.
+const videoUrls = new Set([...sitemap.html.matchAll(/<url>([\s\S]*?)<\/url>/g)]
+  .filter(m => m[1].includes('<video:video>')).map(m => /<loc>(.*?)<\/loc>/.exec(m[1])?.[1]?.replaceAll('&amp;', '&')));
 let cursor = 0;
 async function worker() {
   while (cursor < urls.length) {
@@ -39,10 +42,18 @@ async function worker() {
       for (const block of blocks) {
         try {
           const schema = JSON.parse(block[1]);
+          const videos = [];
           const visit = value => { if (!value || typeof value !== 'object') return; for (const [key, item] of Object.entries(value)) {
             if (['datePublished', 'dateModified'].includes(key) && (typeof item !== 'string' || !Number.isFinite(Date.parse(item)) || Date.parse(item) > Date.now() + 60_000)) fail('invalid/future structured date');
+            if (key === 'video' || item?.['@type'] === 'VideoObject') videos.push(item);
             if (item && typeof item === 'object') visit(item);
           } }; visit(schema);
+          // Google требует name, thumbnailUrl и uploadDate (с поясом); contentUrl — рекомендован.
+          for (const video of videos) {
+            const thumb = [video?.thumbnailUrl].flat()[0];
+            if (!video?.name || !/^https:\/\//.test(thumb || '') || !/^\d{4}-\d\d-\d\dT[\d:]{8}(?:Z|[+-]\d\d:\d\d)$/.test(video.uploadDate || '') || !/^https:\/\//.test(video.contentUrl || '')) fail('invalid VideoObject');
+          }
+          if (videoUrls.has(url) && !videos.length) fail('sitemap promises video, JSON-LD has no VideoObject');
         } catch { fail('invalid JSON-LD'); }
       }
       const assets = [...html.matchAll(/<(?:script|link|img)\b[^>]*(?:src|href)="(\/(?:assets|fonts|images)\/[^"<>]+)"[^>]*>/gi)].map(m => m[1]);

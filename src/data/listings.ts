@@ -51,6 +51,8 @@ export interface Listing {
   floor: string;
   totalFloors?: number;
   updatedAt?: string;
+  /** Когда объект появился на сайте — uploadDate для VideoObject. */
+  createdAt?: string;
   type: 'Новостройки' | 'Вторичка' | '';
   stage: string;
   repair: string;
