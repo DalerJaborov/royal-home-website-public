@@ -3,6 +3,7 @@ import { z } from "zod";
 import { clientIp } from "./lib/rate-limit";
 import { secureCompare } from "./lib/secure-compare";
 import { normalizeImageUrls } from "./lib/uploads-url";
+import { normalizeCrmVideoUrl } from "./lib/crm-video-url";
 import {
   upsertListingByExternalId,
   setListingPublishedByExternalId,
@@ -10,6 +11,7 @@ import {
   setListingPublishedById,
   setListingSoldById,
   setListingCrmShortId,
+  setListingVideoUrl,
   updateListingFactsFromCrm,
 } from "./queries/listings";
 import { findLeadByCrmClientId, applyStatusFromCrm } from "./queries/leads";
@@ -73,6 +75,11 @@ const itemSchema = z.object({
       // из CRM. Ссылка на видео-тур — украшение, не данные объекта: невалидное
       // значение молча превращаем в undefined и публикуем остальное.
       instagramUrl: z.string().url().optional().catch(undefined),
+      // Готовый ролик объекта (публичный mp4 на хосте CRM). Та же логика .catch: битое
+      // значение не роняет партию. Отсутствие поля = у объекта сейчас нет публичного
+      // ролика, поэтому на publish сохранённая ссылка очищается (в отличие от
+      // instagramUrl, который при отсутствии не трогается).
+      videoUrl: z.string().url().optional().catch(undefined),
     })
     .extend(factsSchema.shape)
     .optional(),
@@ -192,7 +199,10 @@ crmSyncApp.post("/listings", async (c) => {
           // не перезаписывая его собственные (более богатые) поля данными из CRM.
           await setListingPublishedById(siteId, true);
           if (item.shortId !== undefined) await setListingCrmShortId({ id: siteId }, item.shortId);
-          if (item.data) await updateListingFactsFromCrm({ id: siteId }, item.data);
+          if (item.data) {
+            await updateListingFactsFromCrm({ id: siteId }, item.data);
+            await setListingVideoUrl({ id: siteId }, normalizeCrmVideoUrl(item.data.videoUrl));
+          }
           results.push({ externalId: item.externalId, ok: true, id: siteId });
         } else {
           if (!item.data) {
@@ -203,6 +213,8 @@ crmSyncApp.post("/listings", async (c) => {
             ...item.data,
             imageUrls: normalizeImageUrls(item.data.imageUrls) ?? undefined,
             crmShortId: item.shortId,
+            // null, а не undefined: drizzle пропускает undefined, а нам нужно очистить.
+            videoUrl: normalizeCrmVideoUrl(item.data.videoUrl),
           });
           // null = БД недоступна (memory-режим): объект НЕ сохранён — честная ошибка
           // вместо ok:true, иначе CRM пометит объект опубликованным, а на сайте его нет.

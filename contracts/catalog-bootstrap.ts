@@ -9,7 +9,7 @@ const MAX_ROWS = 1000;
 const MAX_AGE_MS = 30_000;
 const CLOCK_SKEW_MS = 5_000;
 const NULLABLE_TEXT_KEYS = [
-  'floor', 'stage', 'repair', 'description', 'seoDesc', 'instagramUrl',
+  'floor', 'stage', 'repair', 'description', 'seoDesc', 'instagramUrl', 'videoUrl',
   'metaTitle', 'metaDescription', 'h1', 'descriptionTj', 'metaTitleTj',
   'metaDescriptionTj', 'h1Tj', 'date',
 ] as const;

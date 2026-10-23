@@ -14,7 +14,7 @@ function usableListing(value: unknown): value is Record<string, unknown> {
   if (['price', 'rooms', 'area', 'images'].some(key => typeof row[key] !== 'number' || !Number.isFinite(row[key]) || Number(row[key]) < 0)) return false;
   if (row.imageUrls != null && (!Array.isArray(row.imageUrls) || row.imageUrls.some(url => typeof url !== 'string'))) return false;
   if (['urgent', 'sold'].some(key => row[key] !== undefined && typeof row[key] !== 'boolean')) return false;
-  if (['floor', 'stage', 'repair', 'date', 'description', 'seoDesc', 'mapAddress', 'instagramUrl', 'metaTitle', 'metaDescription', 'h1', 'descriptionTj', 'metaTitleTj', 'metaDescriptionTj', 'h1Tj']
+  if (['floor', 'stage', 'repair', 'date', 'description', 'seoDesc', 'mapAddress', 'instagramUrl', 'videoUrl', 'metaTitle', 'metaDescription', 'h1', 'descriptionTj', 'metaTitleTj', 'metaDescriptionTj', 'h1Tj']
     .some(key => row[key] != null && typeof row[key] !== 'string')) return false;
   if (row.details != null && (typeof row.details !== 'object' || Array.isArray(row.details) || Object.values(row.details).some(detail => typeof detail !== 'string'))) return false;
   return true;

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   setListingPublishedById: vi.fn().mockResolvedValue(undefined),
   setListingSoldById: vi.fn().mockResolvedValue(undefined),
   setListingCrmShortId: vi.fn().mockResolvedValue(undefined),
+  setListingVideoUrl: vi.fn().mockResolvedValue(undefined),
   updateListingFactsFromCrm: vi.fn().mockResolvedValue(41),
 }));
 vi.mock("./queries/listings", () => mocks);

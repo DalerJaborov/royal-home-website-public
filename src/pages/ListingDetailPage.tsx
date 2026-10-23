@@ -6,7 +6,7 @@ import { useLocale } from '@/hooks/useLocale';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Link } from '@/components/LocalizedLink';
-import { Heart, MapPin, BedDouble, Square, Building2, ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Calendar, Instagram, Phone } from 'lucide-react';
+import { Heart, MapPin, BedDouble, Square, Building2, ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Calendar, Instagram, Phone, Play } from 'lucide-react';
 import { pricePerMeter, formatPrice, getListingCoords, getDistrictName, type Listing } from '../data/listings';
 import { useListingData, useListingsData } from '@/hooks/useListingsData';
 import { useSeo, SITE_ORIGIN } from '@/hooks/useSeo';
@@ -23,6 +23,7 @@ import CardPhotoCarousel, { NoPhotoPlaceholder } from '@/components/CardPhotoCar
 import { listingFactRows } from '@contracts/listing-facts';
 import ShareButton from '@/components/ShareButton';
 import ThumbnailImage from '@/components/ThumbnailImage';
+import { buildGallerySlides } from '@/lib/gallerySlides';
 
 /**
  * Показывать ли карту с точным расположением объекта. Выключено по решению
@@ -75,8 +76,20 @@ function FeatureBadge({ value }: { value: string }) {
 // ============================================
 // Swipeable Gallery with drag-and-follow
 // ============================================
-export function SwipeableGallery({ images }: { images: string[] }) {
+// Высота нативной панели управления <video>: жест, начатый на ней (перемотка,
+// громкость), принадлежит плееру, а не галерее.
+const VIDEO_CONTROLS_ZONE_PX = 56;
+
+function startsOnVideoControls(target: EventTarget | null, clientY: number) {
+  if (!(target instanceof HTMLVideoElement)) return false;
+  return clientY > target.getBoundingClientRect().bottom - VIDEO_CONTROLS_ZONE_PX;
+}
+
+export function SwipeableGallery({ images, videoUrl }: { images: string[]; videoUrl?: string | null }) {
   const { text: tx } = useLocale();
+  // Ролик — вторым слайдом (после первого фото), см. lib/gallerySlides.ts.
+  const slides = useMemo(() => buildGallerySlides(images, videoUrl), [images, videoUrl]);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loadedPhotos, setLoadedPhotos] = useState(() => new Set([0, 1]));
   const [offset, setOffset] = useState(0);
@@ -90,6 +103,11 @@ export function SwipeableGallery({ images }: { images: string[] }) {
   const currentIdxRef = useRef(0);
 
   useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
+
+  // Ушли со слайда-ролика — ставим на паузу, иначе звук продолжит играть за кадром.
+  useEffect(() => {
+    if (slides[currentIdx]?.kind !== 'video') videoRef.current?.pause();
+  }, [currentIdx, slides]);
 
   // Ширина в ref — для обработчиков жеста, в состоянии — для рендера. Рендер
   // читал ref напрямую, а его React не отслеживает: до первой перерисовки по
@@ -126,11 +144,11 @@ export function SwipeableGallery({ images }: { images: string[] }) {
 
   const goTo = useCallback((idx: number) => {
     if (idx < 0) idx = 0;
-    if (idx >= images.length) idx = images.length - 1;
+    if (idx >= slides.length) idx = slides.length - 1;
     setLoadedPhotos(previous => new Set([...previous, idx - 1, idx, idx + 1]));
     setCurrentIdx(idx);
     setOffset(0);
-  }, [images.length]);
+  }, [slides.length]);
 
   const goNext = useCallback(() => goTo(currentIdxRef.current + 1), [goTo]);
   const goPrev = useCallback(() => goTo(currentIdxRef.current - 1), [goTo]);
@@ -146,6 +164,7 @@ export function SwipeableGallery({ images }: { images: string[] }) {
 
     const onStart = (e: TouchEvent) => {
       const touch = e.touches[0];
+      if (startsOnVideoControls(e.target, touch.clientY)) { axis.current = 'v'; return; }
       startX.current = touch.clientX;
       startY.current = touch.clientY;
       currentX.current = touch.clientX;
@@ -176,7 +195,7 @@ export function SwipeableGallery({ images }: { images: string[] }) {
       if (axis.current === 'h') {
         const dx = currentX.current - startX.current;
         const threshold = containerWidth.current * 0.15;
-        if (dx < -threshold && currentIdxRef.current < images.length - 1) goNext();
+        if (dx < -threshold && currentIdxRef.current < slides.length - 1) goNext();
         else if (dx > threshold && currentIdxRef.current > 0) goPrev();
       }
       axis.current = null;
@@ -194,10 +213,11 @@ export function SwipeableGallery({ images }: { images: string[] }) {
       el.removeEventListener('touchend', onEnd);
       el.removeEventListener('touchcancel', onEnd);
     };
-  }, [images.length, goNext, goPrev, updateWidth]);
+  }, [slides.length, goNext, goPrev, updateWidth]);
 
   // Mouse
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (startsOnVideoControls(e.target, e.clientY)) return;
     setIsDragging(true);
     startX.current = e.clientX;
     currentX.current = e.clientX;
@@ -215,26 +235,26 @@ export function SwipeableGallery({ images }: { images: string[] }) {
     setIsDragging(false);
     const dx = currentX.current - startX.current;
     const threshold = containerWidth.current * 0.15;
-    if (dx < -threshold && currentIdx < images.length - 1) {
+    if (dx < -threshold && currentIdx < slides.length - 1) {
       goNext();
     } else if (dx > threshold && currentIdx > 0) {
       goPrev();
     }
     setOffset(0);
-  }, [isDragging, currentIdx, images.length, goNext, goPrev]);
+  }, [isDragging, currentIdx, slides.length, goNext, goPrev]);
 
   const handleMouseLeave = useCallback(() => {
     if (!isDragging) return;
     setIsDragging(false);
     const dx = currentX.current - startX.current;
     const threshold = containerWidth.current * 0.15;
-    if (dx < -threshold && currentIdx < images.length - 1) {
+    if (dx < -threshold && currentIdx < slides.length - 1) {
       goNext();
     } else if (dx > threshold && currentIdx > 0) {
       goPrev();
     }
     setOffset(0);
-  }, [isDragging, currentIdx, images.length, goNext, goPrev]);
+  }, [isDragging, currentIdx, slides.length, goNext, goPrev]);
 
   // Spring physics for smooth snap
   const transitionStyle = isDragging
@@ -265,19 +285,35 @@ export function SwipeableGallery({ images }: { images: string[] }) {
             transition: transitionStyle,
           }}
         >
-          {images.map((src, i) => (
+          {slides.map((slide, i) => (
             <div key={i} className="w-full h-full flex-shrink-0 flex items-center justify-center">
-              {loadedPhotos.has(i) && <img
-                src={src}
-                alt={tx("Фото {0}", { "0": i + 1 })}
-                className="w-full h-full object-cover pointer-events-none"
-                width={1200}
-                height={900}
-                loading={i === 0 ? 'eager' : 'lazy'}
-                fetchPriority={i === 0 ? 'high' : 'low'}
-                decoding="async"
-                draggable={false}
-              />}
+              {slide.kind === 'video' ? (
+                // Вертикальный ролик 9:16 вписывается без растяжения (object-contain на
+                // тёмном фоне). preload="none": файл с сервера CRM не качается, пока
+                // человек не нажал play; poster — первое фото, оно уже загружено.
+                loadedPhotos.has(i) && <video
+                  ref={videoRef}
+                  src={slide.src}
+                  poster={images[0]}
+                  controls
+                  playsInline
+                  preload="none"
+                  aria-label={tx("Видео объекта")}
+                  className="w-full h-full object-contain bg-black"
+                />
+              ) : (
+                loadedPhotos.has(i) && <img
+                  src={slide.src}
+                  alt={tx("Фото {0}", { "0": slide.photoNumber })}
+                  className="w-full h-full object-cover pointer-events-none"
+                  width={1200}
+                  height={900}
+                  loading={i === 0 ? 'eager' : 'lazy'}
+                  fetchPriority={i === 0 ? 'high' : 'low'}
+                  decoding="async"
+                  draggable={false}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -297,7 +333,7 @@ export function SwipeableGallery({ images }: { images: string[] }) {
         )}
 
         {/* Right arrow */}
-        {currentIdx < images.length - 1 && (
+        {currentIdx < slides.length - 1 && (
           <button
             onClick={(e) => { e.stopPropagation(); goNext(); }}
             aria-label={tx("Следующее фото")}
@@ -309,7 +345,7 @@ export function SwipeableGallery({ images }: { images: string[] }) {
 
         {/* Dots */}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 pointer-events-none">
-          {images.map((_, d) => (
+          {slides.map((_, d) => (
             <div
               key={d}
               className={`h-1.5 rounded-full transition-all ${
@@ -325,18 +361,29 @@ export function SwipeableGallery({ images }: { images: string[] }) {
           the selected ring from being clipped at the first/last item. */}
       <div className="mt-5 overflow-x-auto py-2 scrollbar-hide">
         <div className="flex gap-2 px-4 w-max mx-auto">
-          {images.map((src, i) => (
+          {slides.map((slide, i) => (
             <button
               key={i}
               onClick={() => goTo(i)}
               aria-pressed={i === currentIdx}
-              className={`flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden transition-all ${
+              aria-label={slide.kind === 'video' ? tx("Видео объекта") : undefined}
+              className={`relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden transition-all ${
                 i === currentIdx
                   ? 'ring-2 ring-emerald-500 ring-offset-2'
                   : 'opacity-60 hover:opacity-100'
               }`}
             >
-              <ThumbnailImage src={src} alt={tx("Миниатюра {0}", { "0": i + 1 })} loading="lazy" fetchPriority="low" width={96} height={96} className="w-full h-full object-cover" />
+              {slide.kind === 'video' ? (
+                // Миниатюра ролика: первое фото под затемнением со значком play.
+                <>
+                  {images[0] ? <ThumbnailImage src={images[0]} alt="" loading="lazy" fetchPriority="low" width={96} height={96} className="w-full h-full object-cover" /> : <span className="block w-full h-full bg-gray-800" />}
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/40" aria-hidden="true">
+                    <Play className="w-7 h-7 text-white fill-white" />
+                  </span>
+                </>
+              ) : (
+                <ThumbnailImage src={slide.src} alt={tx("Миниатюра {0}", { "0": slide.photoNumber })} loading="lazy" fetchPriority="low" width={96} height={96} className="w-full h-full object-cover" />
+              )}
             </button>
           ))}
         </div>
@@ -344,7 +391,7 @@ export function SwipeableGallery({ images }: { images: string[] }) {
 
       {/* Photo count */}
       <div className="flex items-center gap-2 mt-2">
-        <span className="text-xs text-gray-500 font-medium">{images.length}  {tx("фото")}</span>
+        <span className="text-xs text-gray-500 font-medium">{images.length}  {tx("фото")}{videoUrl ? ` · ${tx("видео")}` : ''}</span>
       </div>
     </div>
   );
@@ -511,8 +558,8 @@ export default function ListingDetailPage() {
       {/* Content */}
       <div className="max-w-3xl mx-auto px-4 pt-2">
         {/* Gallery */}
-        {images.length > 0 ? (
-          <SwipeableGallery key={listing.id} images={images} />
+        {images.length > 0 || listing.videoUrl ? (
+          <SwipeableGallery key={listing.id} images={images} videoUrl={listing.videoUrl} />
         ) : (
           <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
             <NoPhotoPlaceholder />

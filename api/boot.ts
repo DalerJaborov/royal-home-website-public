@@ -12,6 +12,7 @@ import { createOAuthCallbackHandler } from "./kimi/auth";
 import { Paths } from "@contracts/constants";
 import { ensureLocalAdmin } from "./queries/users";
 import { crmSyncApp } from "./crm-sync-router";
+import { CRM_MEDIA_HOST } from "./lib/crm-video-url";
 import { findListingByExternalId } from "./queries/listings";
 import { buildSitemapXml } from "./lib/sitemap";
 import { getOgImageJpeg, ogImageParamToFilename } from "./lib/ogImage";
@@ -62,10 +63,12 @@ app.use(async (c, next) => {
       // defense-in-depth for any absolute URL that slips through.
       // *.cdninstagram.com/*.fbcdn.net: live Reels cover photos (instagram-router.ts)
       // are served straight from Meta's CDN, not proxied through our own host.
-      `img-src 'self' data: blob: https://crm.royalhome.tj https://*.cdninstagram.com https://*.fbcdn.net https://mc.yandex.ru https://mc.yandex.com${metaCsp.img}`,
+      `img-src 'self' data: blob: https://${CRM_MEDIA_HOST} https://*.cdninstagram.com https://*.fbcdn.net https://mc.yandex.ru https://mc.yandex.com${metaCsp.img}`,
       // <video> playback for the inline Reels lightbox (ReelsSection.tsx) — the
       // video file itself streams straight from Meta's CDN, same domains as img-src.
-      "media-src 'self' https://*.cdninstagram.com https://*.fbcdn.net",
+      // Ролик объекта на странице объекта (галерея, второй слайд) — mp4 с хоста CRM
+      // (api/lib/crm-video-url.ts), грузится только после нажатия play.
+      `media-src 'self' https://${CRM_MEDIA_HOST} https://*.cdninstagram.com https://*.fbcdn.net`,
       `connect-src 'self' https://mc.yandex.ru https://mc.yandex.com https://cloudflareinsights.com https://www.google.com/recaptcha/${metaCsp.connect}`,
       // Карты — виджеты Яндекса в iframe (карточка объекта: yandex.com,
       // контакты: yandex.ru). Без frame-src их режет default-src 'self' —

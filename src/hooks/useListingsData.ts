@@ -34,6 +34,7 @@ interface ServerListing {
   lat?: number | null;
   lng?: number | null;
   instagramUrl?: string | null;
+  videoUrl?: string | null;
   metaTitle?: string | null;
   metaDescription?: string | null;
   h1?: string | null;
@@ -73,6 +74,7 @@ export function mapServerListing(l: ServerListing): Listing {
     lat: l.lat ?? undefined,
     lng: l.lng ?? undefined,
     instagramUrl: l.instagramUrl ?? undefined,
+    videoUrl: l.videoUrl ?? undefined,
     details: (l.details ?? undefined) as ListingDetails | undefined,
     description: l.description ?? undefined,
     metaTitle: l.metaTitle ?? undefined,

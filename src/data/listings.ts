@@ -69,6 +69,8 @@ export interface Listing {
   lng?: number;
   /** Link to an Instagram Reel/post with a video tour of the property. */
   instagramUrl?: string;
+  /** Готовый ролик объекта (mp4 с хоста CRM) — второй слайд галереи. */
+  videoUrl?: string;
   details?: ListingDetails;
   description?: string;
   metaTitle?: string;
