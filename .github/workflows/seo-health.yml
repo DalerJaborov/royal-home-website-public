@@ -9,9 +9,8 @@ concurrency:
   group: public-seo-health
   cancel-in-progress: false
 jobs:
-  # The complete Node crawl runs on the VPS through the public domain. It still
-  # checks Cloudflare responses, while using an origin that the edge allows.
-  # Browser-based lab measurements retain an independent GitHub vantage point.
+  # The complete Node crawl checks the public Caddy origin on the VPS. These
+  # browser checks independently measure external HTTPS/Cloudflare access.
   speed:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

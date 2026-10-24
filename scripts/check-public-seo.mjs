@@ -1,16 +1,19 @@
 // Read-only release gate. No submissions to search engines or form/API writes.
 import { writeFileSync } from 'node:fs';
 import { structuredDataFacts } from './lib/seo-validation.mjs';
-import { createSeoHttp } from './lib/seo-http.mjs';
+import { createSeoHttp, fetchSeoOrigin } from './lib/seo-http.mjs';
 const origin = process.env.SEO_CHECK_ORIGIN || 'https://royalhome.tj';
 const canonicalOrigin = 'https://royalhome.tj';
+const vantage = origin === canonicalOrigin ? 'public-edge' : 'origin';
+const probeHeaders = url => process.env.SEO_CHECK_HOST === 'royalhome.tj' && new URL(url).origin === new URL(origin).origin
+  ? { Host: 'royalhome.tj' } : undefined;
 const issues = [];
 const rows = [];
 const startedAt = Date.now();
 // A daily job must finish even if every URL is unreachable. Each later probe
 // shares this deadline instead of starting another full timeout after it expires.
 const auditSignal = AbortSignal.timeout(10 * 60_000);
-const http = createSeoHttp({ signal: auditSignal });
+const http = createSeoHttp({ signal: auditSignal, fetchImpl: process.env.SEO_CHECK_HOST === 'royalhome.tj' ? fetchSeoOrigin : fetch });
 const probeFailure = error => error?.probe || { cause: error?.cause?.code || error?.name || 'unknown' };
 const progress = phase => console.error(`[seo] ${phase}`);
 async function eachProbe(items, probe) {
@@ -18,10 +21,11 @@ async function eachProbe(items, probe) {
   await Promise.all(Array.from({ length: 3 }, async () => { while (next < queue.length) await probe(queue[next++]); }));
 }
 async function read(path) {
-  return http.request(new URL(path, origin), { body: true });
+  const url = new URL(path, origin);
+  return http.request(url, { body: true, redirect: 'manual', headers: probeHeaders(url) });
 }
 function unavailableSitemap(error, details = {}) {
-  const report = { checkedAt: new Date().toISOString(), origin, total: 0, issues: [{ path: '/sitemap.xml', error, ...details }], rows: [] };
+  const report = { checkedAt: new Date().toISOString(), origin, vantage, total: 0, issues: [{ path: '/sitemap.xml', error, ...details }], rows: [] };
   if (process.env.SEO_CHECK_REPORT) writeFileSync(process.env.SEO_CHECK_REPORT, JSON.stringify(report, null, 2));
   console.error(JSON.stringify(report, null, 2));
   throw Error(error);
@@ -100,7 +104,7 @@ await eachProbe(media, async ([url, kind]) => {
     const target = new URL(url);
     if (target.protocol !== 'https:' || !['royalhome.tj', 'crm.royalhome.tj'].includes(target.hostname)) { issues.push({ url, error: 'untrusted video asset' }); return; }
     const mediaUrl = target.origin === canonicalOrigin ? new URL(target.pathname + target.search, origin) : target;
-    const response = await http.request(mediaUrl, { method: 'HEAD', redirect: 'manual' });
+    const response = await http.request(mediaUrl, { method: 'HEAD', redirect: 'manual', headers: probeHeaders(mediaUrl) });
     if (response.status !== 200 || !response.contentType.startsWith(kind + '/')) issues.push({ url, error: 'unavailable/wrong-type video asset', status: response.status, contentType: response.contentType, cfMitigated: response.cfMitigated });
     if (/noindex|none/i.test(response.robotsHeader)) issues.push({ url, error: 'video asset blocks indexing' });
   } catch (error) { issues.push({ url, error: 'video asset fetch failed', ...probeFailure(error) }); }
@@ -111,7 +115,7 @@ for (const key of ['title', 'description']) {
 const assets = new Set(rows.flatMap(row => row.assets));
 progress(`Public assets: ${assets.size}`);
 await eachProbe(assets, async asset => {
-  try { const r = await http.request(new URL(asset, origin), { method: 'HEAD' }); if (r.status !== 200 || /text\/html/.test(r.contentType)) issues.push({ asset, error: 'missing/wrong-type resource', status: r.status, contentType: r.contentType, cfMitigated: r.cfMitigated }); }
+  try { const url = new URL(asset, origin); const r = await http.request(url, { method: 'HEAD', redirect: 'manual', headers: probeHeaders(url) }); if (r.status !== 200 || /text\/html/.test(r.contentType)) issues.push({ asset, error: 'missing/wrong-type resource', status: r.status, contentType: r.contentType, cfMitigated: r.cfMitigated }); }
   catch (error) { issues.push({ asset, error: 'resource fetch failed', ...probeFailure(error) }); }
 });
 progress('Negative/indexability probes');
@@ -121,8 +125,8 @@ for (const [path, status, noindex] of [['/listing/2147483647', 404, true], ['/li
     if (r.status !== status || /noindex/i.test(robots) !== noindex) issues.push({ path, error: 'negative/parameter indexability probe' });
   } catch (error) { issues.push({ path, error: 'negative probe fetch failed', ...probeFailure(error) }); }
 }
-const report = { checkedAt: new Date().toISOString(), origin, total: urls.length, durationMs: Date.now() - startedAt,
+const report = { checkedAt: new Date().toISOString(), origin, vantage, total: urls.length, durationMs: Date.now() - startedAt,
   recoveries: http.recoveries, issues, rows };
 if (process.env.SEO_CHECK_REPORT) writeFileSync(process.env.SEO_CHECK_REPORT, JSON.stringify(report, null, 2));
-console.log(JSON.stringify({ checkedAt: report.checkedAt, origin, total: urls.length, durationMs: report.durationMs, recoveries: report.recoveries, issues }, null, 2));
+console.log(JSON.stringify({ checkedAt: report.checkedAt, origin, vantage, total: urls.length, durationMs: report.durationMs, recoveries: report.recoveries, issues }, null, 2));
 if (issues.length) process.exitCode = 1;

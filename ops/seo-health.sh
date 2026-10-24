@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Daily read-only crawl through the public domain, using the app's existing Node runtime.
+# Daily origin crawl through the existing public Caddy virtual host.
+# External HTTPS/edge access is independently checked by GitHub browsers.
 # No secrets, database writes, submissions, or new images are needed.
 set -euo pipefail
 cd /opt/royalhome-site
@@ -28,5 +29,7 @@ JS
   cat scripts/lib/seo-validation.mjs
   cat scripts/lib/seo-http.mjs
   sed -e "/^import { structuredDataFacts } from '.\/lib\/seo-validation.mjs';$/d" \
-      -e "/^import { createSeoHttp } from '.\/lib\/seo-http.mjs';$/d" scripts/check-public-seo.mjs
-} | docker exec --interactive --env "SEO_CHECK_REPORT=$report_path" --env SEO_CHECK_ORIGIN=https://royalhome.tj royalhome-site-app-1 node --input-type=module
+      -e "/^import { createSeoHttp, fetchSeoOrigin } from '.\/lib\/seo-http.mjs';$/d" scripts/check-public-seo.mjs
+} | docker exec --interactive --env "SEO_CHECK_REPORT=$report_path" \
+  --env SEO_CHECK_ORIGIN=http://host.docker.internal --env SEO_CHECK_HOST=royalhome.tj \
+  royalhome-site-app-1 node --input-type=module
