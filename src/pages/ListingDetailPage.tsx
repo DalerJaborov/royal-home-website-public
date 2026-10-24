@@ -24,6 +24,7 @@ import { listingFactRows } from '@contracts/listing-facts';
 import ShareButton from '@/components/ShareButton';
 import ThumbnailImage from '@/components/ThumbnailImage';
 import { buildGallerySlides } from '@/lib/gallerySlides';
+import { listingVideoContentUrl, VIDEO_COPY } from '@contracts/listing-video';
 
 /**
  * Показывать ли карту с точным расположением объекта. Выключено по решению
@@ -440,7 +441,7 @@ export default function ListingDetailPage() {
       ? listingJsonLd({ title: englishSeo ? englishSeo.heading : locale === 'ru' ? listing.h1?.trim() || listing.title : listingTitle(listing, locale, tx), description: seoDescription,
           images: listing.photos?.map(absUrl) || [], url: listingUrl, price: listing.price,
           rooms: listing.rooms, area: listing.area, sold: Boolean(listing.sold), category: listing.category,
-          videoUrl: listing.videoUrl, uploadDate: listing.createdAt })
+          videoUrl: listing.videoUrl ? listingVideoContentUrl(listing.id) : null, uploadDate: listing.createdAt })
       : null,
   });
 
@@ -568,6 +569,7 @@ export default function ListingDetailPage() {
         )}
 
         {/* Title & Price */}
+        {listing.videoUrl && images.length > 0 && <Link to={`/listing/${listing.id}/video`} className="inline-flex items-center gap-2 mt-4 text-emerald-800 underline underline-offset-4"><Play className="h-4 w-4" aria-hidden="true" />{VIDEO_COPY[locale].label}</Link>}
         <div className="mt-5">
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-2xl font-extrabold text-emerald-800">{tx(formatPrice(listing.price))}</span>

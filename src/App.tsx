@@ -21,6 +21,7 @@ import type { PublicLocaleDictionary } from '@contracts/public-i18n';
 import { InitialCatalogPage as ListingsPage } from './lib/initialCatalogPage';
 const DistrictCatalogPage = lazy(() => import('./pages/DistrictCatalogPage'));
 const ListingDetailPage = lazy(() => import('./pages/ListingDetailPage'));
+import { InitialVideoPage as ListingVideoPage } from './lib/initialVideoPage';
 const ServicesPage = lazy(() => import('./pages/ServicesPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const ContactsPage = lazy(() => import('./pages/ContactsPage'));
@@ -77,6 +78,7 @@ function AppShell() {
               <Route path="/listings" element={<ListingsPage t={t} />} />
               <Route path="/kvartiry/:slug" element={<DistrictCatalogPage />} />
               <Route path="/listing/:id" element={<ListingDetailPage />} />
+              <Route path="/listing/:id/video" element={<ListingVideoPage />} />
               <Route path="/sell" element={<SellPage />} />
               <Route path="/services" element={<ServicesPage t={t} />} />
               <Route path="/services/:slug" element={<ServiceDetailPage />} />

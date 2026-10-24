@@ -1,0 +1,65 @@
+name: Public SEO health
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-seo-health
+  cancel-in-progress: false
+jobs:
+  crawl:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Test the audit logic
+        run: node --test scripts/lib/seo-validation.test.mjs
+      - name: Crawl current published pages and video assets
+        env:
+          SEO_CHECK_REPORT: seo-health.json
+        run: node scripts/check-public-seo.mjs
+      - name: Keep the current crawl evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-seo-health
+          path: seo-health.json
+          retention-days: 14
+  speed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - page: home-ru
+            path: /
+          - page: catalog-tg
+            path: /tg/khonaho-dushanbe
+          - page: catalog-en
+            path: /en/listings
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Measure mobile lab performance, SEO and accessibility
+        run: >-
+          npx --yes lighthouse@13.5.0 https://royalhome.tj${{ matrix.path }}
+          --only-categories=performance,seo,accessibility
+          --output=json --output=html --output-path=mobile-${{ matrix.page }}
+          --chrome-flags="--headless --no-sandbox --disable-gpu" --quiet
+      - name: Keep lab reports (not real-user Core Web Vitals)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-speed-${{ matrix.page }}
+          path: mobile-${{ matrix.page }}.*
+          retention-days: 14

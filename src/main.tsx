@@ -5,6 +5,7 @@ import SiteApplication from './SiteApplication';
 import { preloadLocaleDictionary } from './lib/localeDictionaries';
 import { resolvePublicPath } from '@contracts/public-i18n';
 import { prepareInitialCatalog } from './lib/initialCatalogPage';
+import { prepareInitialVideo } from './lib/initialVideoPage';
 
 // Раньше был HashRouter (ссылки вида /#/listing/37). Перешли на BrowserRouter
 // ради серверного SEO и превью-ссылок (мессенджеры/краулеры видят только путь,
@@ -40,4 +41,6 @@ void Promise.all([
   preloadLocaleDictionary(resolvePublicPath(window.location.pathname).locale),
   document.getElementById('root')?.dataset.publicSsr === 'true'
     ? prepareInitialCatalog(window.location.pathname) : Promise.resolve(),
+  document.getElementById('root')?.dataset.publicSsr === 'true'
+    ? prepareInitialVideo(window.location.pathname) : Promise.resolve(),
 ]).then(renderApp, renderApp);

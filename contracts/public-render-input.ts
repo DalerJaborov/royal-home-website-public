@@ -4,5 +4,6 @@ export interface PublicRenderInput {
   path: string;
   cms: Record<string, unknown>;
   inventory: readonly PublicListing[];
+  listing?: PublicListing;
   dictionary?: PublicLocaleDictionary;
 }

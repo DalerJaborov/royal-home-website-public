@@ -50,6 +50,12 @@ describe('actual service worker cache policy', () => {
     expect(await worker.dispatch('/api/leads', 'cors', 'POST')).toBeUndefined();
     expect(worker.fetch).not.toHaveBeenCalled(); expect(worker.stores.size).toBe(0);
   });
+  it('leaves public video streaming to the network without buffering or offline caching', async () => {
+    const worker = harness();
+    expect(await worker.dispatch('/media/listing-video/120.mp4')).toBeUndefined();
+    expect(worker.fetch).not.toHaveBeenCalled();
+    expect(worker.stores.size).toBe(0);
+  });
   it('revalidates same-version translations and uses only exact viewed URL on network failure', async () => {
     const worker = harness(), path = '/locales/tg.json?v=same';
     worker.fetch.mockResolvedValueOnce(json('{"strings":{"key":"old"}}')); await worker.dispatch(path);

@@ -29,7 +29,7 @@ describe("Sitemap integrity", () => {
     expect(vi.mocked(findPublishedArticles)).toHaveBeenLastCalledWith({ limit: 500, offset: 500 });
   });
   it("adds the video extension only to listings with a video and a cover, escaped", async () => {
-    const row = (id: number, extra: object) => ({ id, location: "Сино, Душанбе", title: "Квартира & <дом>", imageUrls: ["/uploads/a.jpg"], seoDesc: "Описание", createdAt: new Date("2026-10-01T20:30:00Z"), updatedAt: new Date("2026-10-02"), ...extra });
+    const row = (id: number, extra: object) => ({ id, rooms: 2, area: 80, price: 800000, location: "Сино, Душанбе", title: "Квартира & <дом>", imageUrls: ["/uploads/a.jpg"], seoDesc: "Описание", createdAt: new Date("2026-10-01T20:30:00Z"), updatedAt: new Date("2026-10-02"), ...extra });
     vi.mocked(findAllListings).mockResolvedValue([
       row(1, { videoUrl: "https://crm.royalhome.tj/api/v1/public/property-video/1.mp4?a=1&b=2" }),
       row(2, { videoUrl: null }),
@@ -37,11 +37,15 @@ describe("Sitemap integrity", () => {
     ] as unknown as Awaited<ReturnType<typeof findAllListings>>);
     const xml = await buildSitemapXml();
     expect(xml).toContain('xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"');
-    expect(xml.match(/<video:video>/g)).toHaveLength(1);
-    const block = xml.slice(xml.indexOf("/listing/1</loc>"), xml.indexOf("/listing/2</loc>"));
+    expect(xml.match(/<video:video>/g)).toHaveLength(3);
+    const block = /<url><loc>https:\/\/royalhome.tj\/listing\/1\/video<\/loc>([\s\S]*?)<\/url>/.exec(xml)![1];
     expect(block).toContain("<video:thumbnail_loc>https://royalhome.tj/uploads/a.jpg</video:thumbnail_loc>");
-    expect(block).toContain("<video:title>Квартира &amp; &lt;дом&gt;</video:title>");
-    expect(block).toContain("<video:content_loc>https://crm.royalhome.tj/api/v1/public/property-video/1.mp4?a=1&amp;b=2</video:content_loc>");
+    expect(block).toContain("<video:title>Видеообзор: Квартира &amp; &lt;дом&gt;</video:title>");
+    expect(block).toContain("<video:content_loc>https://royalhome.tj/media/listing-video/1.mp4</video:content_loc>");
+    expect(xml).toContain('/tg/khona/1/video</loc>');
+    expect(xml).toContain('/en/listing/1/video</loc>');
+    expect(xml).not.toContain('/listing/2/video');
+    expect(xml).not.toContain('/listing/3/video');
     expect(block).toContain("<video:publication_date>2026-10-02T01:30:00+05:00</video:publication_date>");
   });
   it("omits inactive CMS articles", async () => {

@@ -91,12 +91,14 @@ export function serveStaticFiles(app: App) {
         cmsSource = serializeCmsBootstrap(await getAllCmsEntries());
       } catch { /* Optional presentation snapshot; the ordinary API query remains available. */ }
     }
-    if (cmsSource && head.catalogInventory && (basePath === '/' || basePath === '/listings') && c.req.url.length <= 4096) {
+    const renderCatalog = head.catalogInventory && (basePath === '/' || basePath === '/listings');
+    const renderVideo = head.publicListing && /^\/listing\/[1-9]\d*\/video$/.test(basePath);
+    if (cmsSource && (renderCatalog || renderVideo) && c.req.url.length <= 4096) {
       const cms = parseCmsBootstrap(cmsSource);
       const dictionary = locale === 'ru' ? undefined : await getPublicDictionary(locale);
       if (cms && (locale === 'ru' || dictionary)) {
         const body = await publicAppHtml({ path: new URL(c.req.url).pathname + new URL(c.req.url).search,
-          cms: cms.data, inventory: head.catalogInventory, dictionary: dictionary ?? undefined });
+          cms: cms.data, inventory: head.catalogInventory ?? [], listing: renderVideo ? head.publicListing : undefined, dictionary: dictionary ?? undefined });
         if (body) { head.body = body; head.hydrate = true; }
       }
     }
