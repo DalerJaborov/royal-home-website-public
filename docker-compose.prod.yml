@@ -12,6 +12,8 @@ services:
       PORT: "3000"
       # Use the same public upload route locally, avoiding a CDN round trip.
       CARD_IMAGE_LOCAL_SOURCE: "1"
+      # Only the existing fixed public-video handler; avoids a CDN round trip.
+      PUBLIC_VIDEO_LOCAL_SOURCE: "1"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

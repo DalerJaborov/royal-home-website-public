@@ -1,5 +1,5 @@
 [Unit]
-Description=Read-only public ROYAL HOME SEO crawl
+Description=Read-only origin ROYAL HOME SEO crawl (external browser checks separate)
 After=docker.service network-online.target
 Wants=network-online.target
 

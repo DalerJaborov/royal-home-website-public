@@ -14,8 +14,28 @@ beforeEach(() => {
   vi.mocked(findListingById).mockReset().mockResolvedValue({ id: 120, published: true, videoUrl: source } as never);
 });
 afterEach(() => vi.unstubAllGlobals());
+afterEach(() => vi.unstubAllEnvs());
 
 describe('crawlable public listing video stream', () => {
+  it('uses only the fixed public endpoint on the already shared CRM network when local source is enabled', async () => {
+    vi.stubEnv('PUBLIC_VIDEO_LOCAL_SOURCE', '1');
+    const result = await publicVideoApp.request('/media/listing-video/120.mp4', {
+      method: 'HEAD', headers: { authorization: 'Bearer private', cookie: 'private=value', range: 'bytes=0-31' },
+    });
+    expect(result.status).toBe(200);
+    expect(upstream.mock.calls[0][0]).toBe('http://royalhome-crm-api-1:4000/api/v1/public/property-video/183.mp4?v=abc123');
+    expect([...upstream.mock.calls[0][1].headers.entries()]).toEqual([['range', 'bytes=0-31']]);
+    expect(result.headers.get('set-cookie')).toBeNull();
+  });
+  it('local transport does not expand the allowed public path or bypass publication', async () => {
+    vi.stubEnv('PUBLIC_VIDEO_LOCAL_SOURCE', '1');
+    for (const row of [{ published: false, videoUrl: source },
+      { published: true, videoUrl: 'https://crm.royalhome.tj/api/v1/users' }]) {
+      vi.mocked(findListingById).mockResolvedValue({ id: 120, ...row } as never);
+      expect((await publicVideoApp.request('/media/listing-video/120.mp4')).status).toBe(404);
+    }
+    expect(upstream).not.toHaveBeenCalled();
+  });
   it('streams the published file without leaking CRM cookies or private robots policy', async () => {
     const result = await publicVideoApp.request('/media/listing-video/120.mp4');
     expect(result.status).toBe(200);

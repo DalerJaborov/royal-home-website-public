@@ -24,7 +24,13 @@ publicVideoApp.on(['GET', 'HEAD'], '/media/listing-video/:file', async c => {
       const value = c.req.header(key);
       if (value) headers.set(key, value);
     }
-    const upstream = await fetch(source, { method: c.req.method, headers, redirect: 'manual',
+    // Same fixed public CRM handler over the existing shared Docker network.
+    // The publication/path checks above and CRM's own public-file checks still
+    // apply. No arbitrary internal URL or CRM credentials can reach this route.
+    const sourceUrl = new URL(source);
+    const upstreamUrl = process.env.PUBLIC_VIDEO_LOCAL_SOURCE === '1'
+      ? new URL(sourceUrl.pathname + sourceUrl.search, 'http://royalhome-crm-api-1:4000').href : source;
+    const upstream = await fetch(upstreamUrl, { method: c.req.method, headers, redirect: 'manual',
       signal: AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(180_000)]) });
     // A replaced/removed video is not an indexable HTML error or a redirect to login.
     if (upstream.status === 404) { await upstream.body?.cancel(); return fail(404); }

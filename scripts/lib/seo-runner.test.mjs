@@ -7,9 +7,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-for (const mode of ['reset-once', 'missing', 'missing-hreflang']) test(`full runner preserves evidence: ${mode}`, async () => {
+for (const mode of ['reset-once', 'missing', 'missing-hreflang', 'origin-host']) test(`full runner preserves evidence: ${mode}`, async () => {
   let assetRequests = 0;
   const server = createServer((request, response) => {
+    if (mode === 'origin-host' && request.headers.host !== 'royalhome.tj') { response.writeHead(400); response.end('Wrong virtual host'); return; }
     const path = new URL(request.url, 'http://fixture').pathname;
     if (path === '/sitemap.xml') { response.end('<urlset><url><loc>https://royalhome.tj/listing/901</loc></url></urlset>'); return; }
     if (path === '/assets/fixture.js') {
@@ -32,7 +33,8 @@ for (const mode of ['reset-once', 'missing', 'missing-hreflang']) test(`full run
   const reportPath = join(directory, 'report.json');
   try {
     const child = spawn(process.execPath, [fileURLToPath(new URL('../check-public-seo.mjs', import.meta.url))], {
-      env: { ...process.env, SEO_CHECK_ORIGIN: `http://127.0.0.1:${server.address().port}`, SEO_CHECK_REPORT: reportPath }, stdio: 'ignore',
+      env: { ...process.env, SEO_CHECK_ORIGIN: `http://127.0.0.1:${server.address().port}`, SEO_CHECK_REPORT: reportPath,
+        SEO_CHECK_HOST: mode === 'origin-host' ? 'royalhome.tj' : '' }, stdio: 'ignore',
     });
     const exit = await new Promise((resolve, reject) => { child.on('close', resolve); child.on('error', reject); });
     const report = JSON.parse(readFileSync(reportPath, 'utf8'));
@@ -41,6 +43,8 @@ for (const mode of ['reset-once', 'missing', 'missing-hreflang']) test(`full run
       assert.equal(exit, 0); assert.equal(assetRequests, 2);
       assert.equal(report.issues.length, 0); assert.equal(report.recoveries.length, 1);
       assert.ok(report.recoveries[0].cause); assert.equal(report.recoveries[0].recoveredStatus, 200);
+    } else if (mode === 'origin-host') {
+      assert.equal(exit, 0); assert.equal(report.vantage, 'origin'); assert.equal(report.issues.length, 0);
     } else {
       assert.equal(exit, 1); assert.equal(assetRequests, 1);
       assert.ok(report.issues.some(issue => mode === 'missing' ? issue.status === 404 : issue.error.includes('hreflang')));
