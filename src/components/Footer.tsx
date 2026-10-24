@@ -114,7 +114,7 @@ export default function Footer() {
 
           {/* Contacts */}
           <div className="space-y-5">
-            <h3 className="text-lg font-semibold">{tx("Связь с нами")}</h3>
+            <h2 className="text-lg font-semibold">{tx("Связь с нами")}</h2>
             <ul className="space-y-3.5">
               <li>
                 <a href={COMPANY_CONTACTS.whatsappHref} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
@@ -141,7 +141,7 @@ export default function Footer() {
 
           {/* Company */}
           <div className="space-y-5">
-            <h3 className="text-lg font-semibold">{tx("Компания")}</h3>
+            <h2 className="text-lg font-semibold">{tx("Компания")}</h2>
             <ul className="space-y-3.5">
               {footerLinks.company.map((link) => (
                 <li key={link.label}>
@@ -155,7 +155,7 @@ export default function Footer() {
 
           {/* Services */}
           <div className="space-y-5">
-            <h3 className="text-lg font-semibold">{tx("Услуги")}</h3>
+            <h2 className="text-lg font-semibold">{tx("Услуги")}</h2>
             <ul className="space-y-3.5">
               {footerLinks.services.map((link) => (
                 <li key={link.label}>

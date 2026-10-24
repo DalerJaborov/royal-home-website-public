@@ -3,7 +3,7 @@ import { listings } from "@db/schema";
 import { eq, desc, asc, and, inArray } from "drizzle-orm";
 import { getCmsEntry } from "./cms";
 import { normalizeImageUrls } from "../lib/uploads-url";
-import { withListingSeoDefaults, buildListingSeoMeta, withListingSeoDefaultsTj, refreshGeneratedListingSeo } from "../lib/seo";
+import { withListingSeoDefaults, buildListingSeoMeta, buildListingSeoMetaTj, withListingSeoDefaultsTj, refreshGeneratedListingSeo, generatedListingSeoPatch } from "../lib/seo";
 import { matchesSearch } from "../lib/searchTokens";
 import { pickCrmListingFacts, type CrmListingFacts } from '@contracts/crm-listing-facts';
 import { metaContentId } from '@contracts/meta-content-id';
@@ -293,10 +293,6 @@ export async function createListing(data: {
    *  ставим false — они ждут модерации в CRM и до одобрения не видны публично. */
   published?: boolean;
 }) {
-  if (!isDbAvailable()) {
-    return memoryCreateListing(data);
-  }
-
   // Страховка: любое новое объявление получает заполненные SEO-поля, даже если
   // админ не трогал SEO-карточку — пустые добираются детерминированно.
   const seo = withListingSeoDefaults(
@@ -328,6 +324,8 @@ export async function createListing(data: {
       floor: data.floor,
     }
   );
+
+  if (!isDbAvailable()) return memoryCreateListing({ ...data, ...seo, ...seoTj });
 
   const db = getDb()!;
   const [result] = await db.insert(listings).values({
@@ -390,14 +388,16 @@ export async function updateListing(
   }>
 ) {
   if (!isDbAvailable()) {
-    return memoryUpdateListing(id, data);
+    const previous = memoryFindListingById(id);
+    return memoryUpdateListing(id, previous ? { ...data, ...generatedListingSeoPatch({ ...previous, ...data }, previous) } : data);
   }
 
   const db = getDb()!;
-  await db
-    .update(listings)
-    .set(data)
-    .where(eq(listings.id, id));
+  await db.transaction(async tx => {
+    const [previous] = await tx.select().from(listings).where(eq(listings.id, id)).for('update');
+    if (!previous) return;
+    await tx.update(listings).set({ ...data, ...generatedListingSeoPatch({ ...previous, ...data }, previous) }).where(eq(listings.id, id));
+  });
 }
 
 export async function deleteListing(id: number) {
@@ -473,6 +473,7 @@ export async function upsertListingByExternalId(
         .update(listings)
         .set({
           ...data,
+          ...generatedListingSeoPatch({ ...existing, ...data }, existing),
           sold: data.sold ?? existing.sold,
           externalId,
           published: true,
@@ -495,6 +496,8 @@ export async function upsertListingByExternalId(
       metaDescription: seo.metaDescription,
       h1: seo.h1,
       seoDesc: seo.metaDescription,
+      ...buildListingSeoMetaTj({ ...data, type: data.type ?? undefined,
+        district: data.location.split(',')[0]?.trim(), floor: data.floor ?? undefined }),
       date: new Date().toLocaleDateString("ru-RU"),
     });
     return result.insertId;
@@ -517,16 +520,19 @@ export async function setListingVideoUrl(identity: { id: number } | { externalId
   await db.update(listings).set({ videoUrl }).where(where);
 }
 
-/** Updates only supplied CRM facts, without publishing a hidden row or replacing photos/SEO. */
+/** Updates supplied facts and their exact generated templates, preserving publication, photos and editorial copy. */
 export async function updateListingFactsFromCrm(identity: { id: number } | { externalId: string }, data: CrmListingFacts) {
   if (!isDbAvailable()) return null;
   const db = getDb()!;
   const where = 'id' in identity ? eq(listings.id, identity.id) : eq(listings.externalId, identity.externalId);
-  const [row] = await db.select({ id: listings.id }).from(listings).where(where);
-  if (!row) return null;
   const facts = pickCrmListingFacts(data);
-  if (Object.keys(facts).length) await db.update(listings).set(facts).where(where);
-  return row.id;
+  return db.transaction(async tx => {
+    const [row] = await tx.select().from(listings).where(where).for('update');
+    if (!row) return null;
+    if (Object.keys(facts).length) await tx.update(listings)
+      .set({ ...facts, ...generatedListingSeoPatch({ ...row, ...facts }, row) }).where(where);
+    return row.id;
+  });
 }
 
 export async function setListingPublishedByExternalId(externalId: string, published: boolean) {

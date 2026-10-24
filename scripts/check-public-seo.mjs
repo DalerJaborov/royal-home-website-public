@@ -1,21 +1,24 @@
 // Read-only release gate. No submissions to search engines or form/API writes.
 import { writeFileSync } from 'node:fs';
 import { structuredDataFacts } from './lib/seo-validation.mjs';
+import { createSeoHttp } from './lib/seo-http.mjs';
 const origin = process.env.SEO_CHECK_ORIGIN || 'https://royalhome.tj';
 const canonicalOrigin = 'https://royalhome.tj';
 const issues = [];
 const rows = [];
+const startedAt = Date.now();
 // A daily job must finish even if every URL is unreachable. Each later probe
 // shares this deadline instead of starting another full timeout after it expires.
 const auditSignal = AbortSignal.timeout(10 * 60_000);
-const requestSignal = ms => AbortSignal.any([auditSignal, AbortSignal.timeout(ms)]);
+const http = createSeoHttp({ signal: auditSignal });
+const probeFailure = error => error?.probe || { cause: error?.cause?.code || error?.name || 'unknown' };
+const progress = phase => console.error(`[seo] ${phase}`);
+async function eachProbe(items, probe) {
+  const queue = [...items]; let next = 0;
+  await Promise.all(Array.from({ length: 3 }, async () => { while (next < queue.length) await probe(queue[next++]); }));
+}
 async function read(path) {
-  const start = performance.now();
-  const response = await fetch(new URL(path, origin), { signal: requestSignal(25_000) });
-  const ttfbMs = Math.round(performance.now() - start);
-  return { status: response.status, html: await response.text(), redirected: response.redirected, ttfbMs,
-    robotsHeader: response.headers.get('x-robots-tag') || '', contentType: response.headers.get('content-type') || '',
-    cfMitigated: response.headers.get('cf-mitigated') || '' };
+  return http.request(new URL(path, origin), { body: true });
 }
 function unavailableSitemap(error, details = {}) {
   const report = { checkedAt: new Date().toISOString(), origin, total: 0, issues: [{ path: '/sitemap.xml', error, ...details }], rows: [] };
@@ -25,7 +28,7 @@ function unavailableSitemap(error, details = {}) {
 }
 let sitemap;
 try { sitemap = await read('/sitemap.xml'); }
-catch (error) { unavailableSitemap('Sitemap fetch failed', { cause: error?.cause?.code || error?.code || error?.name || 'unknown' }); }
+catch (error) { unavailableSitemap('Sitemap fetch failed', probeFailure(error)); }
 if (sitemap.status !== 200) unavailableSitemap(`Sitemap HTTP_${sitemap.status}`, { contentType: sitemap.contentType, cfMitigated: sitemap.cfMitigated });
 const urls = [...sitemap.html.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1].replaceAll('&amp;', '&'));
 if (!urls.length || new Set(urls).size !== urls.length) unavailableSitemap('Empty or duplicate sitemap');
@@ -33,6 +36,7 @@ if (!urls.length || new Set(urls).size !== urls.length) unavailableSitemap('Empt
 const videoUrls = new Set([...sitemap.html.matchAll(/<url>([\s\S]*?)<\/url>/g)]
   .filter(m => m[1].includes('<video:video>')).map(m => /<loc>(.*?)<\/loc>/.exec(m[1])?.[1]?.replaceAll('&amp;', '&')));
 let cursor = 0;
+progress(`Pages: ${urls.length}`);
 async function worker() {
   while (cursor < urls.length) {
     const url = urls[cursor++];
@@ -50,6 +54,8 @@ async function worker() {
         canonical: attr(links.find(t => attr(t, 'rel') === 'canonical'), 'href'),
         alternates: Object.fromEntries(links.filter(t => attr(t, 'hreflang')).map(t => [attr(t, 'hreflang'), attr(t, 'href')])) };
       const fail = error => issues.push({ url, error });
+      if (row.alternates[lang] !== url) fail('missing/incorrect self-referencing hreflang');
+      if (!row.alternates.ru || row.alternates['x-default'] !== row.alternates.ru) fail('missing/incorrect x-default hreflang');
       if (status !== 200) fail(`HTTP_${status}`);
       if (redirected) fail('sitemap URL redirects');
       if (row.lang !== lang || !row.title || !row.description || row.canonical?.replace(/\/$/, '') !== url.replace(/\/$/, '')) fail('language/metadata/canonical');
@@ -72,7 +78,8 @@ async function worker() {
       if (/\/video$/.test(parsed.pathname) && videoUrls.has(url) && !/<video\b[^>]*\bcontrols\b/i.test(html)) fail('watch page has no visible native player');
       const assets = [...html.matchAll(/<(?:script|link|img)\b[^>]*(?:src|href)="(\/(?:assets|fonts|images)\/[^"<>]+)"[^>]*>/gi)].map(m => m[1]);
       row.assets = assets; rows.push(row);
-    } catch { issues.push({ url, error: 'fetch_failed' }); }
+    } catch (error) { issues.push({ url, error: 'fetch_failed', ...probeFailure(error) }); }
+    if (cursor % 100 === 0) progress(`Pages requested: ${cursor}/${urls.length}`);
   }
 }
 await Promise.all([worker(), worker(), worker()]);
@@ -87,30 +94,35 @@ for (const row of rows) {
   for (const url of row.videoSources ?? []) media.set(url, 'video');
   for (const url of row.videoThumbnails ?? []) media.set(url, 'image');
 }
-for (const [url, kind] of media) {
+progress(`Video sources and posters: ${media.size}`);
+await eachProbe(media, async ([url, kind]) => {
   try {
     const target = new URL(url);
-    if (target.protocol !== 'https:' || !['royalhome.tj', 'crm.royalhome.tj'].includes(target.hostname)) { issues.push({ url, error: 'untrusted video asset' }); continue; }
+    if (target.protocol !== 'https:' || !['royalhome.tj', 'crm.royalhome.tj'].includes(target.hostname)) { issues.push({ url, error: 'untrusted video asset' }); return; }
     const mediaUrl = target.origin === canonicalOrigin ? new URL(target.pathname + target.search, origin) : target;
-    const response = await fetch(mediaUrl, { method: 'HEAD', redirect: 'manual', signal: requestSignal(20_000) });
-    if (response.status !== 200 || !(response.headers.get('content-type') || '').startsWith(kind + '/')) issues.push({ url, error: 'unavailable/wrong-type video asset' });
-    if (/noindex|none/i.test(response.headers.get('x-robots-tag') || '')) issues.push({ url, error: 'video asset blocks indexing' });
-  } catch { issues.push({ url, error: 'video asset fetch failed' }); }
-}
+    const response = await http.request(mediaUrl, { method: 'HEAD', redirect: 'manual' });
+    if (response.status !== 200 || !response.contentType.startsWith(kind + '/')) issues.push({ url, error: 'unavailable/wrong-type video asset', status: response.status, contentType: response.contentType, cfMitigated: response.cfMitigated });
+    if (/noindex|none/i.test(response.robotsHeader)) issues.push({ url, error: 'video asset blocks indexing' });
+  } catch (error) { issues.push({ url, error: 'video asset fetch failed', ...probeFailure(error) }); }
+});
 for (const key of ['title', 'description']) {
   const seen = new Set(); for (const row of rows) { if (seen.has(row[key])) issues.push({ url: row.url, error: 'duplicate ' + key }); seen.add(row[key]); }
 }
-for (const asset of new Set(rows.flatMap(row => row.assets))) {
-  try { const r = await fetch(new URL(asset, origin), { method: 'HEAD', signal: requestSignal(20_000) }); if (r.status !== 200 || /text\/html/.test(r.headers.get('content-type') || '')) issues.push({ asset, error: 'missing/wrong-type resource' }); }
-  catch { issues.push({ asset, error: 'resource fetch failed' }); }
-}
+const assets = new Set(rows.flatMap(row => row.assets));
+progress(`Public assets: ${assets.size}`);
+await eachProbe(assets, async asset => {
+  try { const r = await http.request(new URL(asset, origin), { method: 'HEAD' }); if (r.status !== 200 || /text\/html/.test(r.contentType)) issues.push({ asset, error: 'missing/wrong-type resource', status: r.status, contentType: r.contentType, cfMitigated: r.cfMitigated }); }
+  catch (error) { issues.push({ asset, error: 'resource fetch failed', ...probeFailure(error) }); }
+});
+progress('Negative/indexability probes');
 for (const [path, status, noindex] of [['/listing/2147483647', 404, true], ['/listing/2147483647/video', 404, true], ['/services/no-such-service', 404, true], ['/favorites', 200, true], ['/listings?rooms=2', 200, true], ['/listings?utm_source=seo-check', 200, false]]) {
   try {
     const r = await read(path); const robots = r.html.match(/<meta\b[^>]*name="robots"[^>]*content="([^"]+)"/i)?.[1] || '';
     if (r.status !== status || /noindex/i.test(robots) !== noindex) issues.push({ path, error: 'negative/parameter indexability probe' });
-  } catch { issues.push({ path, error: 'negative probe fetch failed' }); }
+  } catch (error) { issues.push({ path, error: 'negative probe fetch failed', ...probeFailure(error) }); }
 }
-const report = { checkedAt: new Date().toISOString(), origin, total: urls.length, issues, rows };
+const report = { checkedAt: new Date().toISOString(), origin, total: urls.length, durationMs: Date.now() - startedAt,
+  recoveries: http.recoveries, issues, rows };
 if (process.env.SEO_CHECK_REPORT) writeFileSync(process.env.SEO_CHECK_REPORT, JSON.stringify(report, null, 2));
-console.log(JSON.stringify({ checkedAt: report.checkedAt, origin, total: urls.length, issues }, null, 2));
+console.log(JSON.stringify({ checkedAt: report.checkedAt, origin, total: urls.length, durationMs: report.durationMs, recoveries: report.recoveries, issues }, null, 2));
 if (issues.length) process.exitCode = 1;

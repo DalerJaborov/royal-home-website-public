@@ -3,6 +3,7 @@ import { Link } from '@/components/LocalizedLink';
 import { useListingData } from '@/hooks/useListingsData';
 import { useLocale } from '@/hooks/useLocale';
 import { useSeo } from '@/hooks/useSeo';
+import { useMetaListingView } from '@/hooks/useMetaPixel';
 import { listingJsonLd } from '@contracts/listing-jsonld';
 import { listingVideoContentUrl, listingVideoMeta, VIDEO_COPY } from '@contracts/listing-video';
 
@@ -18,6 +19,9 @@ export default function ListingVideoPage() {
   const video = listing && meta && listing.videoUrl ? listingJsonLd({ ...listing,
     sold: Boolean(listing.sold), title: meta.name, description: meta.description,
     images, url: meta.url, videoUrl: contentUrl, uploadDate: listing.createdAt }).video : undefined;
+  // Same catalog item and browser/CAPI deduplication as the detail page. Viewing
+  // this page is not a Lead, Purchase or a claim that the video was played.
+  useMetaListingView(video && !isLoading && !isNotFound ? listing?.id : undefined);
   useSeo({ title: meta?.title ?? copy.missing, description: meta?.description,
     image: poster, path: `/listing/${id}/video`, pending: isLoading || (!listing && !isNotFound),
     noindex: isNotFound || (!isLoading && !video),
