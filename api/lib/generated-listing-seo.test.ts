@@ -1,9 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { buildListingSeoMeta, refreshGeneratedListingSeo, type ListingSeoInput } from './seo';
+import { buildListingSeoMeta, buildListingSeoMetaTj, refreshGeneratedListingSeo, type ListingSeoInput } from './seo';
 
 const facts = { title: 'Квартира', location: 'Сино, Душанбе', price: 1200000, rooms: 2, area: 84, category: 'APARTMENT' as const, type: null };
 const input = (extra: Partial<ListingSeoInput> = {}) => ({ ...facts, type: undefined, district: 'Сино', ...extra });
 describe('generated property metadata follows current facts', () => {
+  it('refreshes Tajik templates after a change in rooms, area, district and floor', () => {
+    const previous = { ...facts, rooms: 1, area: 50, floor: '2/9' };
+    const old = buildListingSeoMetaTj(input({ rooms: 1, area: 50, floor: '2/9' }));
+    const next = { ...facts, location: 'Фирдавси, Душанбе', floor: '7/12', ...old };
+    const expected = buildListingSeoMetaTj(input({ district: 'Фирдавси', floor: '7/12' }));
+    expect(refreshGeneratedListingSeo(next, previous)).toMatchObject(expected);
+  });
+  it('repairs stale automatic Tajik prices on read but preserves editorial translations', () => {
+    const old = buildListingSeoMetaTj(input({ price: 750000 }));
+    const row = { ...facts, ...old, h1Tj: 'Хонаи зебо барои оилаи шумо', descriptionTj: 'Тавсифи муаллиф бо ҷузъиёти воқеӣ.' };
+    expect(refreshGeneratedListingSeo(row)).toMatchObject({
+      metaDescriptionTj: buildListingSeoMetaTj(input()).metaDescriptionTj,
+      h1Tj: row.h1Tj, descriptionTj: row.descriptionTj,
+    });
+  });
   it.each([[793440, 791730], [6032000, 6019000], [1425408, 1444560], [1050755, 1049621], [1438400, 1200000]])('repairs the exact stale price template %s → %s', (before, after) => {
     const old = buildListingSeoMeta(input({ price: before })).metaDescription;
     const row = { ...facts, price: after, metaDescription: old, seoDesc: old };

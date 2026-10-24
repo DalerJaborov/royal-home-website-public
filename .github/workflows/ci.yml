@@ -35,6 +35,6 @@ jobs:
           "$RUNNER_TEMP/gitleaks/gitleaks" git . --log-opts=--all --redact --no-banner
       - run: npm ci --no-audit --no-fund
       - run: npm run check
-      - run: node --test scripts/lib/seo-validation.test.mjs scripts/lib/seo-runner.test.mjs
+      - run: node --test scripts/lib/seo-validation.test.mjs scripts/lib/seo-runner.test.mjs scripts/lib/seo-http.test.mjs scripts/lib/seo-lighthouse.test.mjs
       - run: npm test -- --maxWorkers=4
       - run: npm run build

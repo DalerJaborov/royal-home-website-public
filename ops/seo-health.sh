@@ -26,5 +26,7 @@ process.on('exit', code => {
 });
 JS
   cat scripts/lib/seo-validation.mjs
-  sed "/^import { structuredDataFacts } from '.\/lib\/seo-validation.mjs';$/d" scripts/check-public-seo.mjs
+  cat scripts/lib/seo-http.mjs
+  sed -e "/^import { structuredDataFacts } from '.\/lib\/seo-validation.mjs';$/d" \
+      -e "/^import { createSeoHttp } from '.\/lib\/seo-http.mjs';$/d" scripts/check-public-seo.mjs
 } | docker exec --interactive --env "SEO_CHECK_REPORT=$report_path" --env SEO_CHECK_ORIGIN=https://royalhome.tj royalhome-site-app-1 node --input-type=module

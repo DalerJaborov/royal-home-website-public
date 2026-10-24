@@ -115,7 +115,13 @@ type StoredListingSeo = {
   details?: Record<string, string> | null;
   metaTitle?: string | null; metaDescription?: string | null;
   h1?: string | null; seoDesc?: string | null;
+  floor?: string | null;
+  metaTitleTj?: string | null; metaDescriptionTj?: string | null;
+  h1Tj?: string | null; descriptionTj?: string | null;
 };
+
+export const LISTING_SEO_FIELDS = ['metaTitle', 'metaDescription', 'h1', 'seoDesc',
+  'metaTitleTj', 'metaDescriptionTj', 'h1Tj', 'descriptionTj'] as const;
 
 /** Refresh only exact deterministic templates. A changed word makes a field
  * editorial and preserves it. Read-time repair also covers old rows and facts-only
@@ -125,24 +131,29 @@ export function refreshGeneratedListingSeo<T extends StoredListingSeo>(row: T, p
     title: source.title, location: source.location, price: source.price,
     rooms: source.rooms, area: source.area, type: source.type ?? undefined,
     category: source.category, district,
+    floor: source.floor ?? undefined,
   });
-  const current = buildListingSeoMeta(input(row));
+  const templates = (candidate: ListingSeoInput) => {
+    const ru = buildListingSeoMeta(candidate);
+    return { ...ru, seoDesc: ru.metaDescription, ...buildListingSeoMetaTj(candidate) };
+  };
+  const current = templates(input(row));
   const result = { ...row };
-  for (const field of ['metaTitle', 'metaDescription', 'h1', 'seoDesc'] as const) {
+  for (const field of LISTING_SEO_FIELDS) {
     const stored = row[field];
-    if (!stored || stored.length > 300) continue;
-    const key = field === 'seoDesc' ? 'metaDescription' : field;
+    if (!stored || stored.length > 1500) continue;
+    const key = field;
     if (stored === current[key]) continue;
-    const printedPrice = /\. Цена ([\d\s\u00a0\u202f]+) сомони\./u.exec(stored)?.[1];
+    const printedPrice = /\. (?:Цена|Нарх) ([\d\s\u00a0\u202f]+) (?:сомони|сомонӣ)\./u.exec(stored)?.[1];
     const oldPrice = printedPrice ? Number(printedPrice.replace(/\s/gu, '')) : undefined;
     let generated = false;
     candidateSources: for (const source of previous ? [previous, row] : [row]) {
-      for (const district of new Set([source.location.split(',')[0]?.trim(), source.details?.district])) {
+      for (const district of new Set([source.location.split(',')[0]?.trim(), source.details?.district, undefined])) {
         for (const type of [source.type ?? undefined, 'Новостройки', 'Вторичка', undefined]) {
-          const candidate = { ...input(source, district), type };
-          if (buildListingSeoMeta(candidate)[key] === stored ||
+          const candidate = { ...input(source), district, type };
+          if (templates(candidate)[key] === stored ||
             (oldPrice !== undefined && Number.isSafeInteger(oldPrice) && oldPrice >= 0 &&
-              buildListingSeoMeta({ ...candidate, price: oldPrice })[key] === stored)) {
+              templates({ ...candidate, price: oldPrice })[key] === stored)) {
             generated = true;
             break candidateSources;
           }
@@ -152,6 +163,13 @@ export function refreshGeneratedListingSeo<T extends StoredListingSeo>(row: T, p
     if (generated) result[field] = current[key];
   }
   return result;
+}
+
+/** Persist only generated fields that actually changed; manual copy is retained. */
+export function generatedListingSeoPatch(row: StoredListingSeo, previous: StoredListingSeo) {
+  const refreshed = refreshGeneratedListingSeo(row, previous);
+  return Object.fromEntries(LISTING_SEO_FIELDS.filter(field => refreshed[field] !== row[field])
+    .map(field => [field, refreshed[field]])) as Partial<Pick<StoredListingSeo, typeof LISTING_SEO_FIELDS[number]>>;
 }
 
 // ─── ТАДЖИКСКАЯ ВЕРСИЯ (кириллица тоҷикӣ) ───

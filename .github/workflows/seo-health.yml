@@ -27,6 +27,9 @@ jobs:
           - page: catalog-en
             path: /en/listings
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -36,6 +39,8 @@ jobs:
           --only-categories=performance,seo,accessibility
           --output=json --output=html --output-path=mobile-${{ matrix.page }}
           --chrome-flags="--headless --no-sandbox --disable-gpu" --quiet
+      - name: Reject invalid measurements and SEO regressions
+        run: node scripts/check-lighthouse.mjs mobile-${{ matrix.page }}.report.json https://royalhome.tj${{ matrix.path }}
       - name: Keep lab reports (not real-user Core Web Vitals)
         if: always()
         uses: actions/upload-artifact@v4
