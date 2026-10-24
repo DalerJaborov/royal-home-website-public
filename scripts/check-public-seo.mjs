@@ -5,9 +5,13 @@ const origin = process.env.SEO_CHECK_ORIGIN || 'https://royalhome.tj';
 const canonicalOrigin = 'https://royalhome.tj';
 const issues = [];
 const rows = [];
+// A daily job must finish even if every URL is unreachable. Each later probe
+// shares this deadline instead of starting another full timeout after it expires.
+const auditSignal = AbortSignal.timeout(10 * 60_000);
+const requestSignal = ms => AbortSignal.any([auditSignal, AbortSignal.timeout(ms)]);
 async function read(path) {
   const start = performance.now();
-  const response = await fetch(new URL(path, origin), { signal: AbortSignal.timeout(25_000) });
+  const response = await fetch(new URL(path, origin), { signal: requestSignal(25_000) });
   const ttfbMs = Math.round(performance.now() - start);
   return { status: response.status, html: await response.text(), redirected: response.redirected, ttfbMs,
     robotsHeader: response.headers.get('x-robots-tag') || '', contentType: response.headers.get('content-type') || '',
@@ -88,7 +92,7 @@ for (const [url, kind] of media) {
     const target = new URL(url);
     if (target.protocol !== 'https:' || !['royalhome.tj', 'crm.royalhome.tj'].includes(target.hostname)) { issues.push({ url, error: 'untrusted video asset' }); continue; }
     const mediaUrl = target.origin === canonicalOrigin ? new URL(target.pathname + target.search, origin) : target;
-    const response = await fetch(mediaUrl, { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(20_000) });
+    const response = await fetch(mediaUrl, { method: 'HEAD', redirect: 'manual', signal: requestSignal(20_000) });
     if (response.status !== 200 || !(response.headers.get('content-type') || '').startsWith(kind + '/')) issues.push({ url, error: 'unavailable/wrong-type video asset' });
     if (/noindex|none/i.test(response.headers.get('x-robots-tag') || '')) issues.push({ url, error: 'video asset blocks indexing' });
   } catch { issues.push({ url, error: 'video asset fetch failed' }); }
@@ -97,12 +101,14 @@ for (const key of ['title', 'description']) {
   const seen = new Set(); for (const row of rows) { if (seen.has(row[key])) issues.push({ url: row.url, error: 'duplicate ' + key }); seen.add(row[key]); }
 }
 for (const asset of new Set(rows.flatMap(row => row.assets))) {
-  try { const r = await fetch(new URL(asset, origin), { method: 'HEAD', signal: AbortSignal.timeout(20_000) }); if (r.status !== 200 || /text\/html/.test(r.headers.get('content-type') || '')) issues.push({ asset, error: 'missing/wrong-type resource' }); }
+  try { const r = await fetch(new URL(asset, origin), { method: 'HEAD', signal: requestSignal(20_000) }); if (r.status !== 200 || /text\/html/.test(r.headers.get('content-type') || '')) issues.push({ asset, error: 'missing/wrong-type resource' }); }
   catch { issues.push({ asset, error: 'resource fetch failed' }); }
 }
 for (const [path, status, noindex] of [['/listing/2147483647', 404, true], ['/listing/2147483647/video', 404, true], ['/services/no-such-service', 404, true], ['/favorites', 200, true], ['/listings?rooms=2', 200, true], ['/listings?utm_source=seo-check', 200, false]]) {
-  const r = await read(path); const robots = r.html.match(/<meta\b[^>]*name="robots"[^>]*content="([^"]+)"/i)?.[1] || '';
-  if (r.status !== status || /noindex/i.test(robots) !== noindex) issues.push({ path, error: 'negative/parameter indexability probe' });
+  try {
+    const r = await read(path); const robots = r.html.match(/<meta\b[^>]*name="robots"[^>]*content="([^"]+)"/i)?.[1] || '';
+    if (r.status !== status || /noindex/i.test(robots) !== noindex) issues.push({ path, error: 'negative/parameter indexability probe' });
+  } catch { issues.push({ path, error: 'negative probe fetch failed' }); }
 }
 const report = { checkedAt: new Date().toISOString(), origin, total: urls.length, issues, rows };
 if (process.env.SEO_CHECK_REPORT) writeFileSync(process.env.SEO_CHECK_REPORT, JSON.stringify(report, null, 2));

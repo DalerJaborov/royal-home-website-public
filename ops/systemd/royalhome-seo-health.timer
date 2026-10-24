@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily public ROYAL HOME SEO check at 07:17 Asia/Tashkent
+
+[Timer]
+OnCalendar=*-*-* 02:17:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+Unit=royalhome-seo-health.service
+
+[Install]
+WantedBy=timers.target

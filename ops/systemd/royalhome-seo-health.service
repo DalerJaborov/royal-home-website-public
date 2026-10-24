@@ -1,0 +1,11 @@
+[Unit]
+Description=Read-only public ROYAL HOME SEO crawl
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/royalhome-site
+ExecStart=/usr/bin/bash /opt/royalhome-site/ops/seo-health.sh
+TimeoutStartSec=20min
+Nice=10
