@@ -12,6 +12,7 @@ import { localizedPath, publishedAlternates, type PublicLocale } from '@contract
 import { completedLocalePages, getPublicArticleTranslation, getPublicDictionary } from './public-translations';
 import { legacyArticleTranslated, type LegacyArticleSource } from '@contracts/legacy-article-i18n';
 import { dushanbeIso } from '@contracts/listing-jsonld';
+import { listingVideoContentUrl, listingVideoMeta } from '@contracts/listing-video';
 import { DISTRICT_PAGES, districtListings } from '@contracts/district-catalog';
 
 const SITE_ORIGIN = "https://royalhome.tj";
@@ -44,13 +45,13 @@ function videoTag(video: SitemapVideo): string {
 }
 
 /** Ролик объекта для карты сайта; без обложки или ссылки блок невалиден — не выводим. */
-function listingVideo(listing: { title: string; h1?: string | null; metaDescription?: string | null; seoDesc?: string | null; videoUrl?: string | null; imageUrls?: string[] | null; createdAt?: Date | null }): SitemapVideo | undefined {
+function listingVideo(listing: Awaited<ReturnType<typeof findAllListings>>[number], locale: PublicLocale): SitemapVideo | undefined {
   const thumbnail = listing.imageUrls?.[0];
-  if (!listing.videoUrl || !thumbnail) return undefined;
-  const title = listing.h1?.trim() || listing.title;
+  if (!listing.videoUrl || !thumbnail || !dushanbeIso(listing.createdAt)) return undefined;
+  const meta = listingVideoMeta(listing, locale);
   return {
-    thumbnail: new URL(thumbnail, SITE_ORIGIN).href, title, contentUrl: listing.videoUrl,
-    description: (listing.metaDescription || listing.seoDesc || title).trim(), publishedAt: listing.createdAt,
+    thumbnail: new URL(thumbnail, SITE_ORIGIN).href, title: meta.name, contentUrl: listingVideoContentUrl(listing.id),
+    description: meta.description, publishedAt: listing.createdAt,
   };
 }
 
@@ -82,7 +83,16 @@ export async function buildSitemapXml(): Promise<string> {
   // An outage must produce a retryable HTTP error, not a successful sitemap
   // that silently drops the catalog or blog. The route owns the 503 response.
   const [listings, rawPosts] = await Promise.all([findAllListings(), getCmsEntry("blogPosts")]);
-  for (const listing of listings) append(`/listing/${listing.id}`, listing.updatedAt, undefined, listingVideo(listing));
+  for (const listing of listings) {
+    append(`/listing/${listing.id}`, listing.updatedAt);
+    if (!listingVideo(listing, 'ru')) continue;
+    const basePath = `/listing/${listing.id}/video`;
+    const alternates = publishedAlternates(basePath, completed);
+    urls.push(urlTag(basePath, listing.updatedAt, alternates, listingVideo(listing, 'ru')));
+    for (const alternate of alternates) if (alternate.language !== 'ru') {
+      urls.push(urlTag(alternate.path, listing.updatedAt, alternates, listingVideo(listing, alternate.language)));
+    }
+  }
   for (const district of DISTRICT_PAGES) {
     const rows = districtListings<(typeof listings)[number]>(listings, district);
     if (rows.length) append(`/kvartiry/${district.slug}`, new Date(Math.max(...rows.map(row => row.updatedAt.getTime()))));

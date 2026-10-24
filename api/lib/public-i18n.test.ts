@@ -39,6 +39,10 @@ describe('published translation revision', () => {
   });
 });
 describe('localized structured data', () => {
+  it('does not change the soundtrack language when only the watch page is translated', () => {
+    const result = localizedStructuredData({ '@type': 'WebPage', mainEntity: { '@type': 'VideoObject', inLanguage: 'ru' } }, 'tg', {});
+    expect(result).toEqual({ '@type': 'WebPage', inLanguage: 'tg', mainEntity: { '@type': 'VideoObject', inLanguage: 'ru' } });
+  });
   it('localizes human copy and page URLs while preserving schema types and organization identity', () => {
     const schema = { '@type': 'Article', headline: 'Советы', url: 'https://royalhome.tj/blog/guide', publisher: { '@type': 'Organization', name: 'ROYAL HOME', '@id': 'https://royalhome.tj/#organization' } };
     expect(localizedStructuredData(schema, 'tg', { Советы: 'Маслиҳатҳо' })).toEqual({ ...schema, headline: 'Маслиҳатҳо', url: 'https://royalhome.tj/tg/blog/guide', inLanguage: 'tg' });

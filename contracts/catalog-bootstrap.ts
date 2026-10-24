@@ -90,7 +90,7 @@ export function serializeCatalogBootstrap(rows: readonly PublicListing[], now = 
 /** A detail snapshot never seeds the complete catalogue key. Bind the exact
  * public route and reject private fields, stale data or another listing ID. */
 export function parseListingBootstrap(source: string, requestPath: string, now = Date.now()): ListingBootstrap | undefined {
-  const basePath = resolvePublicPath(requestPath).basePath;
+  const basePath = resolvePublicPath(requestPath).basePath.replace(/^(\/listing\/[1-9]\d*)\/video$/, '$1');
   const match = /^\/listing\/([1-9]\d*)$/.exec(basePath);
   if (!match || !source || source.length > CATALOG_BOOTSTRAP_MAX_BYTES || new TextEncoder().encode(source).byteLength > CATALOG_BOOTSTRAP_MAX_BYTES) return;
   try {

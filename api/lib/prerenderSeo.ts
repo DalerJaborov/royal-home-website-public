@@ -5,6 +5,8 @@ import { historicalArticleMediaDisclosure, HISTORICAL_COVER_NOTE, HISTORICAL_BOD
 import { translationSourceHash } from './public-translations';
 import { sellGuideHtml } from './sell-guide';
 import { contactActionsHtml } from './contact-actions';
+import { videoWatchHead } from './video-watch-head';
+import { listingVideoContentUrl, VIDEO_COPY } from '@contracts/listing-video';
 /**
  * Серверная инъекция SEO в index.html (фаза 3). Клиентский useSeo обновляет
  * теги через JS — этого достаточно для Google, но НЕ для скрейперов превью-ссылок
@@ -123,10 +125,11 @@ async function headForListing(id: number, url: string): Promise<Head | null> {
       listingFactsHtml(listing) +
       `<p>${esc(listing.description || listing.seoDesc || seo.metaDescription).replace(/\n/g, "<br />")}</p>` +
       contactActionsHtml('ru', listing) +
+      (listing.videoUrl && images.length ? `<p><a href="/listing/${listing.id}/video">Видеообзор объекта</a></p>` : '') +
       '<p><a href="/listings">Все объекты недвижимости в Душанбе</a></p>'),
     jsonLd: listingJsonLd({ title: listing.h1?.trim() || listing.title, description, images,
       url, price: listing.price, rooms: listing.rooms, area: listing.area, sold: listing.sold, category: listing.category,
-      videoUrl: listing.videoUrl, uploadDate: listing.createdAt }),
+      videoUrl: listing.videoUrl ? listingVideoContentUrl(listing.id) : null, uploadDate: listing.createdAt }),
   };
 }
 
@@ -346,6 +349,14 @@ async function russianHeadForPath(requestPath: string): Promise<Head> {
 export async function headForPath(requestPath: string): Promise<Head> {
   const request = new URL(requestPath, SITE_ORIGIN);
   const identity = resolvePublicPath(request.pathname);
+  const watch = /^\/listing\/([1-9]\d*)\/video$/.exec(identity.basePath);
+  if (watch) {
+    const fallback = { title: VIDEO_COPY[identity.locale].missing, description: VIDEO_COPY[identity.locale].missing,
+      image: DEFAULT_IMAGE, url: `${SITE_ORIGIN}${identity.canonicalPath}`, type: 'website' as const,
+      language: identity.locale, noindex: true, body: `<main><h1>${VIDEO_COPY[identity.locale].missing}</h1><a href="/listings">ROYAL HOME</a></main>` };
+    try { return await videoWatchHead(Number(watch[1]), identity.locale) ?? { ...fallback, status: 404 }; }
+    catch { return { ...fallback, status: 503 }; }
+  }
   const original = await russianHeadForPath(identity.basePath + request.search);
   try {
     // Hono supplies an absolute request URL; locale identity accepts a pathname.
@@ -380,6 +391,10 @@ export function injectSeo(html: string, head: Head): string {
   if (!head.noindex && (head.status ?? 200) === 200) for (const alternate of head.alternates ?? []) {
     out = out.replace('</head>', () => `<link rel="alternate" hreflang="${alternate.language}" href="${SITE_ORIGIN}${esc(alternate.path)}" />\n</head>`);
   }
+  const defaultLanguage = head.alternates?.find(alternate => alternate.language === 'ru');
+  if (!head.noindex && (head.status ?? 200) === 200 && defaultLanguage) {
+    out = out.replace('</head>', () => `<link rel="alternate" hreflang="x-default" href="${SITE_ORIGIN}${esc(defaultLanguage.path)}" />\n</head>`);
+  }
   const title = head.title.replace(/Royal Home(?: TJ)?/gi, "ROYAL HOME");
   if (head.preloadImage && (head.status ?? 200) === 200) {
     out = out.replace(/<head\b[^>]*>/i, tag => `${tag}\n<link rel="preload" as="image" href="${esc(head.preloadImage!)}" fetchpriority="high" />`);
@@ -387,7 +402,8 @@ export function injectSeo(html: string, head: Head): string {
 
   out = out.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${esc(title)}</title>`);
   out = setMetaContent(out, "name", "description", head.description);
-  out = setMetaContent(out, "name", "robots", head.noindex ? "noindex, follow" : "index, follow");
+  out = setMetaContent(out, "name", "robots", head.noindex ? "noindex, follow" : "index, follow, max-image-preview:large, max-video-preview:-1, max-snippet:-1");
+  out = setMetaContent(out, "name", "language", head.language === 'tg' ? 'Tajik' : head.language === 'en' ? 'English' : 'Russian');
 
   out = setMetaContent(out, "property", "og:title", title);
   out = setMetaContent(out, "property", "og:site_name", "ROYAL HOME");

@@ -24,13 +24,13 @@ export function resolvePublicPath(value: string): { locale: PublicLocale; basePa
     if (locale === 'tg') {
       if (basePath === '/khonaho-dushanbe') basePath = '/listings';
       else if (basePath === '/tamos') basePath = '/contacts';
-      else basePath = basePath.replace(/^\/khona\/([1-9]\d*)$/, '/listing/$1');
+      else basePath = basePath.replace(/^\/khona\/([1-9]\d*)(\/video)?$/, '/listing/$1$2');
     }
   }
   // Protected interfaces never acquire a public-language URL.
   if (privatePath(basePath)) locale = 'ru';
   const canonicalPath = locale === 'ru' ? basePath : locale === 'tg'
-    ? TG_ALIASES[basePath] ?? basePath.replace(/^\/listing\/([1-9]\d*)$/, '/khona/$1').replace(/^/, '/tg')
+    ? TG_ALIASES[basePath] ?? basePath.replace(/^\/listing\/([1-9]\d*)(\/video)?$/, '/khona/$1$2').replace(/^/, '/tg')
     : `/en${basePath === '/' ? '' : basePath}`;
   return { locale, basePath, canonicalPath, pageKey: basePath };
 }
@@ -43,7 +43,7 @@ export function localizedPath(value: string, locale: PublicLocale): string {
   if (privatePath(identity.basePath)) return `${identity.basePath}${suffix}`;
   const base = identity.basePath;
   const path = locale === 'ru' ? base : locale === 'tg'
-    ? TG_ALIASES[base] ?? `/tg${base.replace(/^\/listing\/([1-9]\d*)$/, '/khona/$1')}`
+    ? TG_ALIASES[base] ?? `/tg${base.replace(/^\/listing\/([1-9]\d*)(\/video)?$/, '/khona/$1$2')}`
     : `/en${base === '/' ? '' : base}`;
   return path + suffix;
 }
@@ -58,6 +58,7 @@ export interface PublicLocaleDictionary {
 }
 export interface LocaleAlternate { language: PublicLocale; path: string }
 export function isPublicPageComplete(basePath: string, completed: readonly string[] | undefined): boolean {
+  if (/^\/listing\/[1-9]\d*\/video$/.test(basePath)) return isPublicPageComplete(basePath.slice(0, -6), completed);
   return !!completed && (completed.includes(basePath) || (/^\/listing\/[1-9]\d*$/.test(basePath) && completed.includes('/listing/:id')));
 }
 export interface ArticleTranslationSource {
@@ -100,7 +101,7 @@ export function localizedStructuredData(value: unknown, locale: PublicLocale, st
       }
       return [key, visit(source)];
     }));
-    if (['Article', 'FAQPage', 'WebPage', 'RealEstateListing', 'VideoObject'].includes(String(object['@type']))) object.inLanguage = locale;
+    if (['Article', 'FAQPage', 'WebPage', 'RealEstateListing'].includes(String(object['@type']))) object.inLanguage = locale;
     return object;
   };
   return visit(value);

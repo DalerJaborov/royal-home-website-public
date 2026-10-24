@@ -81,7 +81,7 @@ export function useSeo(opts: SeoOptions) {
   const canonicalPath = localizedPath(identity.basePath, locale);
   // Mutable article/property metadata comes from its current source/resource,
   // rather than an old build-time copy attached to an existing ID or slug.
-  const entityPath = /^\/(?:listing\/[1-9]\d*|blog\/[^/]+)$/.test(identity.basePath);
+  const entityPath = /^\/(?:listing\/[1-9]\d*(?:\/video)?|blog\/[^/]+)$/.test(identity.basePath);
   const translatedPage = entityPath ? undefined : localeState.dictionary.pages?.[identity.basePath];
   const translatedTitle = locale === 'ru' ? title : translatedPage?.title ?? localeState.text(title);
   const translatedDescription = locale === 'ru' ? description : translatedPage?.description ?? (description ? localeState.text(description) : undefined);
@@ -102,7 +102,8 @@ export function useSeo(opts: SeoOptions) {
     upsertMeta('name', 'description', desc);
     const catalogFiltered = identity.basePath === '/listings' && catalogNeedsNoindex(new URLSearchParams(window.location.search));
     const blocked = noindex || catalogFiltered || !translationComplete;
-    upsertMeta('name', 'robots', blocked ? 'noindex, follow' : 'index, follow');
+    upsertMeta('name', 'robots', blocked ? 'noindex, follow' : 'index, follow, max-image-preview:large, max-video-preview:-1, max-snippet:-1');
+    upsertMeta('name', 'language', locale === 'tg' ? 'Tajik' : locale === 'en' ? 'English' : 'Russian');
 
     upsertMeta('property', 'og:title', brandedTitle);
     upsertMeta('property', 'og:site_name', 'ROYAL HOME');
@@ -123,6 +124,13 @@ export function useSeo(opts: SeoOptions) {
       link.rel = 'alternate';
       link.hreflang = alternate.language;
       link.href = `${SITE_ORIGIN}${alternate.path}`;
+      document.head.appendChild(link);
+    }
+    const defaultLanguage = (JSON.parse(alternateText) as LocaleAlternate[]).find(alternate => alternate.language === 'ru');
+    if (!blocked && defaultLanguage) {
+      const link = document.createElement('link');
+      link.rel = 'alternate'; link.hreflang = 'x-default';
+      link.href = `${SITE_ORIGIN}${defaultLanguage.path}`;
       document.head.appendChild(link);
     }
 

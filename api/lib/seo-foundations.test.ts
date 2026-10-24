@@ -64,7 +64,7 @@ describe("SEO public HTML", () => {
     const video = jsonLdOf(html).video;
     expect(video).toMatchObject({
       "@type": "VideoObject", name: 'Квартира </script><b>x</b>', thumbnailUrl: ["https://royalhome.tj/uploads/a.jpg"],
-      uploadDate: "2026-10-02T01:30:00+05:00", contentUrl: "https://crm.royalhome.tj/api/v1/public/property-video/101.mp4?v=ab12",
+      uploadDate: "2026-10-02T01:30:00+05:00", contentUrl: "https://royalhome.tj/media/listing-video/101.mp4",
     });
     expect(JSON.stringify(video)).not.toMatch(/Рудаки|7\/9/);
 

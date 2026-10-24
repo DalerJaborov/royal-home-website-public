@@ -11,6 +11,7 @@ export async function renderPublicApplication(input: PublicRenderInput): Promise
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   client.setQueryData(getQueryKey(trpc.cms.getAll, undefined, 'query'), input.cms);
   client.setQueryData(getQueryKey(trpc.listing.list, {}, 'query'), input.inventory);
+  if (input.listing) client.setQueryData(getQueryKey(trpc.listing.getById, { id: input.listing.id }, 'query'), input.listing);
   const controller = new AbortController();
   const deadline = setTimeout(() => controller.abort(), 1500);
   try {

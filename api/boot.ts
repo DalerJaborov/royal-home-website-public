@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { localesApp } from './lib/locales-route';
+import { publicVideoApp } from './lib/public-video';
 import { randomBytes } from "node:crypto";
 import { bodyLimit } from "hono/body-limit";
 import { serveStatic } from "@hono/node-server/serve-static";
@@ -119,6 +120,7 @@ app.use("/api/trpc/*", async (c) => {
 });
 app.route("/api/v1/crm", crmSyncApp);
 app.route('/', localesApp);
+app.route('/', publicVideoApp);
 // JPEG-версия фото объекта для og:image/twitter:image (см. lib/ogImage.ts) —
 // WhatsApp массово не показывает превью-картинку, если файл в WebP (родной
 // формат фото CRM); конвертируем на лету только для превью, показ на сайте

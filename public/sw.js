@@ -31,6 +31,9 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Native streaming/Range requests must never enter the offline cache.
+  // A 40 MB full response would otherwise be buffered and survive unpublication.
+  if (url.pathname.startsWith('/media/listing-video/')) return;
   const publicApiPhoto = /^\/api\/uploads\/.+\.(?:webp|jpe?g|png|avif|gif)$/i.test(url.pathname);
   // Protected interfaces and every API except public photo files bypass SW caches.
   if (((url.pathname === '/api' || url.pathname.startsWith('/api/')) && !publicApiPhoto) || /^\/(?:tg\/|en\/)?(?:admin|login|listing\/preview)(?:\/|$)/.test(url.pathname)) return;
