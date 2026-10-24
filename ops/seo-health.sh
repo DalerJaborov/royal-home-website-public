@@ -31,5 +31,5 @@ JS
   sed -e "/^import { structuredDataFacts } from '.\/lib\/seo-validation.mjs';$/d" \
       -e "/^import { createSeoHttp, fetchSeoOrigin } from '.\/lib\/seo-http.mjs';$/d" scripts/check-public-seo.mjs
 } | docker exec --interactive --env "SEO_CHECK_REPORT=$report_path" \
-  --env SEO_CHECK_ORIGIN=http://host.docker.internal --env SEO_CHECK_HOST=royalhome.tj \
+  --env SEO_CHECK_ORIGIN=http://host.docker.internal \
   royalhome-site-app-1 node --input-type=module
