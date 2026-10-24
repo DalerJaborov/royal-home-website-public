@@ -10,12 +10,21 @@ async function read(path) {
   const response = await fetch(new URL(path, origin), { signal: AbortSignal.timeout(25_000) });
   const ttfbMs = Math.round(performance.now() - start);
   return { status: response.status, html: await response.text(), redirected: response.redirected, ttfbMs,
-    robotsHeader: response.headers.get('x-robots-tag') || '' };
+    robotsHeader: response.headers.get('x-robots-tag') || '', contentType: response.headers.get('content-type') || '',
+    cfMitigated: response.headers.get('cf-mitigated') || '' };
 }
-const sitemap = await read('/sitemap.xml');
-if (sitemap.status !== 200) throw Error('Sitemap unavailable');
+function unavailableSitemap(error, details = {}) {
+  const report = { checkedAt: new Date().toISOString(), origin, total: 0, issues: [{ path: '/sitemap.xml', error, ...details }], rows: [] };
+  if (process.env.SEO_CHECK_REPORT) writeFileSync(process.env.SEO_CHECK_REPORT, JSON.stringify(report, null, 2));
+  console.error(JSON.stringify(report, null, 2));
+  throw Error(error);
+}
+let sitemap;
+try { sitemap = await read('/sitemap.xml'); }
+catch (error) { unavailableSitemap('Sitemap fetch failed', { cause: error?.cause?.code || error?.code || error?.name || 'unknown' }); }
+if (sitemap.status !== 200) unavailableSitemap(`Sitemap HTTP_${sitemap.status}`, { contentType: sitemap.contentType, cfMitigated: sitemap.cfMitigated });
 const urls = [...sitemap.html.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1].replaceAll('&amp;', '&'));
-if (!urls.length || new Set(urls).size !== urls.length) throw Error('Empty or duplicate sitemap');
+if (!urls.length || new Set(urls).size !== urls.length) unavailableSitemap('Empty or duplicate sitemap');
 // Страницы, которым карта сайта обещает ролик (video:video): на них обязан быть VideoObject.
 const videoUrls = new Set([...sitemap.html.matchAll(/<url>([\s\S]*?)<\/url>/g)]
   .filter(m => m[1].includes('<video:video>')).map(m => /<loc>(.*?)<\/loc>/.exec(m[1])?.[1]?.replaceAll('&amp;', '&')));

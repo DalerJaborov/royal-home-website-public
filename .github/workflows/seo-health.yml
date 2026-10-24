@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 24
       - name: Test the audit logic
-        run: node --test scripts/lib/seo-validation.test.mjs
+        run: node --test scripts/lib/seo-validation.test.mjs scripts/lib/seo-runner.test.mjs
       - name: Crawl current published pages and video assets
         env:
           SEO_CHECK_REPORT: seo-health.json
