@@ -7,8 +7,8 @@
 - A listing with a public video, a cover and a valid date receives `/listing/:id/video`. Tajik and English watch pages inherit the publication gate of the corresponding listing page. Each language has its own canonical, title, description and reciprocal alternate links.
 - Video sitemap entries point to watch pages. The listing page links to its watch page; the watch page links back to the listing.
 - Video bytes are streamed through `/media/listing-video/:id.mp4`. The source is resolved from the published listing and must be the existing fixed CRM public-video endpoint. GET, HEAD and byte ranges are supported. This does not expose CRM interfaces or private video files. Publication is checked on every request. Videos are not stored in the service worker's offline cache.
-- `Public SEO health` runs daily at 02:17 UTC (07:17 Asia/Tashkent). It checks the current sitemap, HTTP statuses, source HTML/H1, canonical, metadata uniqueness, actual reciprocal hreflang, structured data, video/thumbnail availability and HTTP noindex headers. Missing pages and filtered catalog URLs have negative probes. It does not download full videos.
-- The same workflow saves mobile Lighthouse reports for Russian home, Tajik catalog and English catalog. These are lab measurements, not real-user Core Web Vitals. Reports remain available as GitHub Actions artifacts for 14 days.
+- `royalhome-seo-health.timer` runs daily at 02:17 UTC (07:17 Asia/Tashkent, up to five minutes of jitter). It checks the public domain through Cloudflare: current sitemap, HTTP statuses, source HTML/H1, canonical, metadata uniqueness, actual reciprocal hreflang, structured data, video/thumbnail availability and HTTP noindex headers. Missing pages and filtered catalog URLs have negative probes. It does not download full videos. It uses the existing app container's Node runtime; no database/provider credentials are passed. Reports live in the persistent `/app/data/seo` directory for 14 days, with `latest.json` for the last attempt and `last-success.json` for the last successful crawl. Failed runs retain their nonzero exit and journal entries.
+- `Public SEO health` in GitHub Actions independently saves daily mobile Lighthouse reports for Russian home, Tajik catalog and English catalog. These are lab measurements, not real-user Core Web Vitals. Reports remain available as GitHub Actions artifacts for 14 days. The initial GitHub Node crawl received HTTP 403 with `cf-mitigated: challenge`; its failure is retained separately. The VPS/public-domain crawl and GitHub browser tests are different measurements, not interchangeable evidence of global crawler access.
 
 ## Release and verification
 
@@ -22,6 +22,8 @@ npm run check:seo
 ```
 
 Also verify a real current video with HEAD and a small byte range, a watch page in each language at mobile/desktop widths, and the source/image installed on the server. Trigger the health workflow once after deployment to confirm the scheduled mechanism can complete.
+
+To install the daily crawl after reviewed source checks, install the two `ops/systemd/royalhome-seo-health.*` files into `/etc/systemd/system/`, run `systemctl daemon-reload`, then `systemctl enable --now royalhome-seo-health.timer`. Run `systemctl start royalhome-seo-health.service` once and inspect the terminal service result plus `/app/data/seo/latest.json` before calling the monitor operational. The lock prevents overlapping manual and scheduled runs. A source-only monitor update does not require rebuilding or restarting the website application.
 
 ## Search performance and editorial work
 
