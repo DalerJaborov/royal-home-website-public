@@ -1,4 +1,4 @@
-import { listingTitle, listingLocation } from '@/lib/listingPresentation';
+import { listingTitle, listingLocation, listingDescription } from '@/lib/listingPresentation';
 import { useLocale } from '@/hooks/useLocale';
 import { Link } from '@/components/LocalizedLink';
 import { motion } from 'framer-motion';
@@ -123,7 +123,7 @@ export default function FavoritesPage() {
                       <Building2 className="w-3.5 h-3.5" /> {tx(listing.floor)}
                     </span>
                   </div>
-                  <p className="sr-only">{tx(listing.seoDesc)}</p>
+                  <p className="sr-only">{locale === 'ru' ? listing.seoDesc : listingDescription(listing, locale, tx)}</p>
                 </div>
               </motion.div>
             );
