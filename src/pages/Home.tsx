@@ -1,4 +1,4 @@
-import { listingTitle } from '@/lib/listingPresentation';
+import { listingTitle, listingDescription } from '@/lib/listingPresentation';
 import { useLocale } from '@/hooks/useLocale';
 import { getLeadSubmissionSource } from '@/lib/acquisitionAttribution';
 import { lazy, Suspense, useState, useEffect, useRef } from 'react';
@@ -181,7 +181,7 @@ function ListingCard({ listing, size = 'normal', favorites, onToggleFav }: { lis
         <div className="flex items-center pt-2 border-t border-gray-100">
           <div className="text-[11px] text-gray-500">{tx(listing.date)}</div>
         </div>
-        <p className="sr-only">{tx(listing.seoDesc)}</p>
+        <p className="sr-only">{locale === 'ru' ? listing.seoDesc : listingDescription(listing, locale, tx)}</p>
       </div>
     </Link>
   );

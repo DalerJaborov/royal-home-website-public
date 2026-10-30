@@ -4,6 +4,7 @@ import { renderPublicApplication } from './entry-server';
 // Keep that test-runner compilation outside the real 1.5 second render budget.
 import './pages/ListingsPage';
 import './pages/ListingVideoPage';
+import './pages/Home';
 import { readFileSync } from 'node:fs';
 import { projectPublicListing, type PublicListingSource } from '@contracts/public-listing';
 const source: PublicListingSource = { id: 885551, title: 'PUBLIC_RENDER_FIXTURE', location: 'Сино, Душанбе', price: 800000, rooms: 2, area: 60,
@@ -12,6 +13,13 @@ const source: PublicListingSource = { id: 885551, title: 'PUBLIC_RENDER_FIXTURE'
   createdAt: new Date('2026-10-15T00:00:00Z'), updatedAt: new Date('2026-10-15T00:00:00Z') };
 afterEach(() => vi.unstubAllGlobals());
 describe('the same public React tree renders before JavaScript', () => {
+  it.each(['tg', 'en'] as const)('localizes the accessible home card summary in %s', async locale => {
+    const dictionary = JSON.parse(readFileSync(new URL(`../public/locales/${locale}.json`, import.meta.url), 'utf8'));
+    const listing = projectPublicListing({ ...source, seoDesc: 'РУССКОЕ ОПИСАНИЕ ТОЛЬКО ДЛЯ РУССКОЙ ВЕРСИИ' });
+    const html = await renderPublicApplication({ path: `/${locale}`, cms: {}, inventory: [listing], dictionary });
+    expect(html).not.toContain('РУССКОЕ ОПИСАНИЕ ТОЛЬКО ДЛЯ РУССКОЙ ВЕРСИИ');
+    expect(html).toContain(locale === 'tg' ? 'сомонӣ' : 'somoni');
+  });
   it.each(['ru', 'tg', 'en'] as const)('renders a complete %s watch page from its public detail snapshot without API requests', async locale => {
     const fetch = vi.fn(() => { throw Error('SSR must use supplied listing'); }); vi.stubGlobal('fetch', fetch);
     const listing = projectPublicListing({ ...source, videoUrl: 'https://crm.royalhome.tj/api/v1/public/property-video/183.mp4' });
