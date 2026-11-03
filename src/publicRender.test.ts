@@ -13,6 +13,16 @@ const source: PublicListingSource = { id: 885551, title: 'PUBLIC_RENDER_FIXTURE'
   createdAt: new Date('2026-10-15T00:00:00Z'), updatedAt: new Date('2026-10-15T00:00:00Z') };
 afterEach(() => vi.unstubAllGlobals());
 describe('the same public React tree renders before JavaScript', () => {
+  it.each(['/', '/listings', '/listings?tab=urgent'])('keeps legacy urgent properties in the ordinary catalogue at %s without urgent controls', async path => {
+    const inventory = [projectPublicListing({ ...source, urgent: true }), projectPublicListing({ ...source, id: source.id + 1, title: 'ORDINARY_PROPERTY' })];
+    const html = await renderPublicApplication({ path, cms: {}, inventory });
+    expect(html).toContain('PUBLIC_RENDER_FIXTURE');
+    expect(html).toContain('ORDINARY_PROPERTY');
+    expect(html).not.toContain('Срочные объявления');
+    expect(html).not.toContain('Смотреть все срочные');
+    expect(html).not.toContain('>Срочные<');
+    expect(html).not.toContain('>Срочная<');
+  });
   it.each(['tg', 'en'] as const)('localizes the accessible home card summary in %s', async locale => {
     const dictionary = JSON.parse(readFileSync(new URL(`../public/locales/${locale}.json`, import.meta.url), 'utf8'));
     const listing = projectPublicListing({ ...source, seoDesc: 'РУССКОЕ ОПИСАНИЕ ТОЛЬКО ДЛЯ РУССКОЙ ВЕРСИИ' });

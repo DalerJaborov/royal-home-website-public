@@ -407,14 +407,7 @@ function ListingEditor({ listingId, initialListing }: { listingId: number; initi
                 </select>
               </div>
             </div>
-            <div className="mt-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div className={`w-11 h-6 rounded-full transition-colors relative ${form.urgent ? 'bg-red-500' : 'bg-gray-200'}`} onClick={() => setForm(p => ({ ...p, urgent: !p.urgent }))}>
-                  <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all`} style={{ left: form.urgent ? '22px' : '2px' }} />
-                </div>
-                <span className="text-sm font-medium text-gray-700">Срочное объявление</span>
-              </label>
-            </div>
+
           </div>
 
           {/* Flat Details */}

@@ -1,6 +1,6 @@
 export interface CatalogView {
   category: 'all' | 'APARTMENT' | 'HOUSE' | 'COMMERCIAL' | 'LAND';
-  tab: 'all' | 'new' | 'secondary' | 'urgent';
+  tab: 'all' | 'new' | 'secondary';
   district: string; rooms: string; minPrice: string; maxPrice: string;
   minArea: string; maxArea: string; query: string; sort: string;
   filterKey: string; count: number; scrollY: number;

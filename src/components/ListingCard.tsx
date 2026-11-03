@@ -27,7 +27,6 @@ export default function ListingCard({ listing, priority = false }: { listing: Li
             <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-gray-800 text-white uppercase">{tx("Продано")}</span>
           ) : (
             <>
-              {listing.urgent && <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-500 text-white uppercase">{tx("Срочная")}</span>}
               <span className="px-2.5 py-1 rounded-md text-[11px] font-bold text-white" style={{ backgroundColor: '#1a4d3a' }}>{tx("Продаётся")}</span>
             </>
           )}

@@ -624,9 +624,7 @@ export default function ListingDetailPage() {
           {listing.type && <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-50 text-emerald-800">{tx(listing.type)}</span>}
           {listing.stage && <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600">{tx("Стадия:")} {tx(listing.stage)}</span>}
           {listing.repair && <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-50 text-blue-700">{tx(listing.repair)}</span>}
-          {listing.sold
-            ? <span className="px-3 py-1.5 rounded-lg text-sm font-bold bg-gray-800 text-white">{tx("Продано")}</span>
-            : listing.urgent && <span className="px-3 py-1.5 rounded-lg text-sm font-bold bg-red-50 text-red-600">{tx("Срочная")}</span>}
+          {listing.sold && <span className="px-3 py-1.5 rounded-lg text-sm font-bold bg-gray-800 text-white">{tx("Продано")}</span>}
           {listing.instagramUrl && (
             <a
               href={listing.instagramUrl}
