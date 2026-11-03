@@ -299,7 +299,7 @@ async function russianHeadForPath(requestPath: string): Promise<Head> {
           (!district || district === "Все районы" || item.location.toLowerCase().includes(district.toLowerCase())) &&
           (!rooms || rooms === "Все" || (rooms === "4+" ? item.rooms >= 4 : item.rooms === Number(rooms))) &&
           (!category || category === "all" || item.category === category) &&
-          (!tab || tab === "all" || (tab === "new" ? item.type === "Новостройки" : tab === "secondary" ? item.type === "Вторичка" : tab === "urgent" ? item.urgent && !item.sold : true)) &&
+          (!tab || tab === "all" || (tab === "new" ? item.type === "Новостройки" : tab === "secondary" ? item.type === "Вторичка" : true)) &&
           (!q || matchesSearch(`${item.title} ${item.location} ${item.description || ""}`, q))
         );
         return { ...fallback, ...staticPage, noindex: catalogNeedsNoindex(requestUrl.searchParams), preloadImage: catalogCoverPreload(requestPath, inventory), catalogInventory: inventory,

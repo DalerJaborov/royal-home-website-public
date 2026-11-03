@@ -242,7 +242,6 @@ export default function AdminListingsPage() {
                           <div className="min-w-0">
                             <div className="font-semibold text-gray-900 truncate max-w-[200px]">{l.title}</div>
                             <div className="flex items-center gap-2 mt-0.5">
-                              {l.urgent && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500 text-white">СРОЧНО</span>}
                               <span className="text-[11px] text-gray-400">{l.type}</span>
                             </div>
                           </div>

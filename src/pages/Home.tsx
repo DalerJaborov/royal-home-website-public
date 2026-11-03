@@ -5,7 +5,7 @@ import { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { Link } from '@/components/LocalizedLink';
 import { useNavigate } from '@/hooks/useLocalizedNavigate';
 import Reveal from '@/components/Reveal';
-import { Search, MapPin, BedDouble, Square, Building2, Heart, Check, SortAsc, ArrowRight } from 'lucide-react';
+import { Search, MapPin, BedDouble, Square, Building2, Heart, Check, SortAsc } from 'lucide-react';
 import { useFavorites } from '../contexts/FavoritesContext';
 import { objectsWord } from '../lib/plural';
 import { useCms, CATEGORY_LABELS, type CategoryVisibility } from '../contexts/CmsContext';
@@ -43,7 +43,7 @@ function CardImageCarousel({ photos, title }: { listingId?: number; photos?: str
   return <CardPhotoCarousel photos={photos ?? []} alt={title} />;
 }
 
-function HeroFloatCard({ listing, badge }: { listing: Listing; badge: string }) {
+function HeroFloatCard({ listing }: { listing: Listing }) {
   const { text: tx, locale } = useLocale();
   const [settled, setSettled] = useState(false);
   return (
@@ -52,7 +52,6 @@ function HeroFloatCard({ listing, badge }: { listing: Listing; badge: string }) 
       className={`float-card ${settled ? 'settled' : ''}`}
       onAnimationEnd={(event) => { if (event.animationName === 'cardIn') setSettled(true); }}
     >
-      {listing.urgent && <span className="card-badge">{tx(badge)}</span>}
       <ThumbnailImage variant="card" className="card-img" src={listing.photos?.[0] || getListingImage(listing.id)} alt={listingTitle(listing, locale, tx)} />
       <div className="card-body">
         <div className="card-title">{listingTitle(listing, locale, tx)}</div>
@@ -64,86 +63,6 @@ function HeroFloatCard({ listing, badge }: { listing: Listing; badge: string }) 
   );
 }
 
-// AURA-style listing card — module scope for the same stable-identity reason as above.
-function AurListingCard({ listing, size = 'normal', favorites, onToggleFav }: { listing: Listing; size?: 'normal' | 'large' | 'small'; favorites: number[]; onToggleFav: (id: number) => void }) {
-  const { text: tx, locale } = useLocale();
-  const isFav = favorites.includes(listing.id);
-  const isLarge = size === 'large';
-
-  if (isLarge) {
-    return (
-      <Link to={`/listing/${listing.id}`} className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-lg transition-all block">
-        <div className="relative overflow-hidden bg-gray-100" style={{ aspectRatio: '16/10' }}>
-          <CardImageCarousel listingId={listing.id} photos={listing.photos} title={listingTitle(listing, locale, tx)} />
-          {listing.sold ? (
-            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-md text-[11px] font-bold bg-gray-800 text-white uppercase z-10">{tx("Продано")}</span>
-          ) : listing.urgent && (
-            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-500 text-white uppercase z-10">{tx("Срочная")}</span>
-          )}
-          <button
-            onClick={(e) => { e.preventDefault(); onToggleFav(listing.id); }}
-            aria-label={isFav ? tx("Убрать из избранного") : tx("Добавить в избранное")}
-            aria-pressed={isFav}
-            className={`absolute top-3 right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all ${isFav ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-500'}`}
-          >
-            <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-white' : ''}`} />
-          </button>
-        </div>
-        <div className="p-4">
-          <div className="flex items-baseline justify-between mb-1">
-            <span className="text-xl font-extrabold text-emerald-800">{tx(formatPrice(listing.price))}</span>
-            <span className="flex items-center gap-1 text-xs text-gray-400"><MapPin className="w-3 h-3" /> {tx(getDistrictName(listing.location))}</span>
-          </div>
-          <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-2">{listingTitle(listing, locale, tx)}</h3>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 mb-3">
-            <span className="flex items-center gap-1"><BedDouble className="w-3 h-3" /> {listing.rooms}{tx("-ком")}</span>
-            <span className="flex items-center gap-1"><Square className="w-3 h-3" /> {listing.area}  {tx("м²")}</span>
-            <span className="flex items-center gap-1"><Building2 className="w-3 h-3" /> {tx(listing.floor)}</span>
-          </div>
-          <div className="flex items-center pt-2 border-t border-gray-100">
-            <span className="text-[10px] text-gray-400 ml-auto">{tx(listing.date)}</span>
-          </div>
-        </div>
-      </Link>
-    );
-  }
-
-  // Small card (for 2×2 grid)
-  return (
-    <Link to={`/listing/${listing.id}`} className="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-md transition-all block">
-      <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
-        <CardImageCarousel listingId={listing.id} photos={listing.photos} title={listingTitle(listing, locale, tx)} />
-        {listing.sold ? (
-          <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-gray-800 text-white uppercase z-10">{tx("Продано")}</span>
-        ) : listing.urgent && (
-          <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500 text-white uppercase z-10">{tx("Срочная")}</span>
-        )}
-        <button
-          onClick={(e) => { e.preventDefault(); onToggleFav(listing.id); }}
-          aria-label={isFav ? tx("Убрать из избранного") : tx("Добавить в избранное")}
-          aria-pressed={isFav}
-          className={`absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center shadow-sm transition-all ${isFav ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-500'}`}
-        >
-          <Heart className={`w-3 h-3 ${isFav ? 'fill-white' : ''}`} />
-        </button>
-      </div>
-      <div className="p-3">
-        <div className="flex items-baseline justify-between mb-0.5">
-          <span className="text-base font-extrabold text-emerald-800">{tx(formatPrice(listing.price))}</span>
-          <span className="flex items-center gap-0.5 text-[10px] text-gray-400"><MapPin className="w-2.5 h-2.5" /> {tx(getDistrictName(listing.location, '').slice(0, 8))}</span>
-        </div>
-        <h3 className="text-xs font-bold text-gray-900 mb-1.5 line-clamp-2">{listingTitle(listing, locale, tx)}</h3>
-        <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-500 mb-2">
-          <span>{listing.rooms}{tx("-ком")}</span>
-          <span>{listing.area}  {tx("м²")}</span>
-          <span>{tx(listing.floor)}</span>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-// Module scope for the same stable-identity reason as CardImageCarousel above.
 function ListingCard({ listing, size = 'normal', favorites, onToggleFav }: { listing: Listing; size?: 'normal' | 'large'; favorites: number[]; onToggleFav: (id: number) => void }) {
   const { text: tx, locale } = useLocale();
   const isFav = favorites.includes(listing.id);
@@ -199,7 +118,6 @@ export default function Home({ t }: { t: Translations }) {
   const [sortBy, setSortBy] = useState('Без сортировки');
   const [sortOpen, setSortOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'new' | 'secondary'>('all');
-  const [urgentTab, setUrgentTab] = useState<'new' | 'secondary'>('new');
   const [phone, setPhone] = useState('');
   const [phoneSent, setPhoneSent] = useState(false);
   // Категория из того же справочника, что и фильтр каталога. Раньше здесь был
@@ -287,17 +205,6 @@ export default function Home({ t }: { t: Translations }) {
     navigate(`/listings${query ? `?${query}` : ''}`);
   };
 
-  // Sold listings stay in the catalog with a «Продано» badge, but a sold
-  // object is no longer urgent — keep it out of the «Срочные» rail.
-  // Вкладки соответствуют своим подписям: раньше кнопка «Новостройки» ставила
-  // режим all и показывала всё подряд, а «Вторичка» — режим new и показывала
-  // новостройки, из-за чего вторичное жильё в этом блоке не показывалось никогда.
-  const urgent = LISTINGS.filter(
-    l => l.urgent && !l.sold && (urgentTab === 'new' ? l.type === 'Новостройки' : l.type === 'Вторичка')
-  );
-  const featured1 = urgent[0];
-  const urgentRest = urgent.slice(1, 5);
-
   let displayed = activeTab === 'all' ? LISTINGS : activeTab === 'new' ? LISTINGS.filter(l => l.type === 'Новостройки') : LISTINGS.filter(l => l.type === 'Вторичка');
   if (sortBy === 'Цена — по возрастанию') displayed = [...displayed].sort((a, b) => a.price - b.price);
   else if (sortBy === 'Цена — по убыванию') displayed = [...displayed].sort((a, b) => b.price - a.price);
@@ -335,10 +242,10 @@ export default function Home({ t }: { t: Translations }) {
 
         {/* Floating cards: desktop only */}
         <div className="float-card-wrap card-1">
-          {heroSelectedListings[0] && <HeroFloatCard key={heroSelectedListings[0].id} listing={heroSelectedListings[0]} badge="Топ" />}
+          {heroSelectedListings[0] && <HeroFloatCard key={heroSelectedListings[0].id} listing={heroSelectedListings[0]} />}
         </div>
         <div className="float-card-wrap card-2">
-          {heroSelectedListings[1] && <HeroFloatCard key={heroSelectedListings[1].id} listing={heroSelectedListings[1]} badge="Новое" />}
+          {heroSelectedListings[1] && <HeroFloatCard key={heroSelectedListings[1].id} listing={heroSelectedListings[1]} />}
         </div>
 
         <div className="hero-content">
@@ -374,7 +281,6 @@ export default function Home({ t }: { t: Translations }) {
                   onAnimationEnd={() => setMobExiting(null)}
                   tabIndex={-1}
                 >
-                  {listing.urgent && <span className="card-badge">{tx("Топ")}</span>}
                   <ThumbnailImage
                     variant="card"
                     className="card-img"
@@ -402,7 +308,6 @@ export default function Home({ t }: { t: Translations }) {
                   key={`mob-${mobIdx}-${mobCycle}`}
                   style={{ '--rest-rot': `${restRot}deg`, '--enter-rot': `${enterRot}deg` } as React.CSSProperties}
                 >
-                  {listing.urgent && <span className="card-badge">{tx("Топ")}</span>}
                   <ThumbnailImage
                     variant="card"
                     className="card-img"
@@ -485,41 +390,6 @@ export default function Home({ t }: { t: Translations }) {
       <Suspense fallback={null}><ReelsSection /></Suspense>
 
       <Suspense fallback={null}><HomeServices /></Suspense>
-
-      {/* ===== URGENT: AURA-style 1 big left + 4 small right =====
-          Секция скрыта целиком, когда срочных объектов нет (после снятия
-          демо-данных все реальные объекты идут без флага «срочная»). */}
-      {urgent.length > 0 && (
-      <section className="py-12 bg-gray-50">
-        <div className="section-padding">
-          <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">{tx(t.urgent.title)}</h2>
-          <div className="flex gap-2 mb-6">
-            {[{ key: 'new' as const, label: t.listings.new }, { key: 'secondary' as const, label: t.listings.secondary }].map(tab => (
-              <button key={tab.key} onClick={() => setUrgentTab(tab.key)} className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${urgentTab === tab.key ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`} style={urgentTab === tab.key ? { backgroundColor: '#1a4d3a' } : {}}>{tx(tab.label)}</button>
-            ))}
-          </div>
-
-          {featured1 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-              {/* Big left card */}
-              <AurListingCard listing={featured1} size="large" favorites={favorites} onToggleFav={toggleFav} />
-              {/* Right: 2×2 grid */}
-              <div className="grid grid-cols-2 gap-4">
-                {urgentRest.slice(0, 4).map(l => (
-                  <AurListingCard key={l.id} listing={l} size="small" favorites={favorites} onToggleFav={toggleFav} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="text-center">
-            <Link to="/listings?tab=urgent" className="btn-royal inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold text-sm">
-               {tx("Смотреть все срочные")} <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
-      )}
 
       <Suspense fallback={null}><HomeServicePromotions /></Suspense>
 

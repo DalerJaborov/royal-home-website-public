@@ -59,8 +59,8 @@ export default function ListingsPage({ t }: { t: Translations }) {
   const [sortOpen, setSortOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const urlTab = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'all' | 'new' | 'secondary' | 'urgent'>(
-    savedView?.tab ?? (urlTab === 'urgent' || urlTab === 'new' || urlTab === 'secondary' ? urlTab : 'all')
+  const [activeTab, setActiveTab] = useState<'all' | 'new' | 'secondary'>(
+    savedView?.tab ?? (urlTab === 'new' || urlTab === 'secondary' ? urlTab : 'all')
   );
 
   // Read URL filters
@@ -92,9 +92,7 @@ export default function ListingsPage({ t }: { t: Translations }) {
       ? uniqueListings
       : activeTab === 'new'
         ? uniqueListings.filter(l => l.type === 'Новостройки')
-        : activeTab === 'secondary'
-          ? uniqueListings.filter(l => l.type === 'Вторичка')
-          : uniqueListings.filter(l => l.urgent && !l.sold);
+        : uniqueListings.filter(l => l.type === 'Вторичка');
 
     // Category (CRM property type; site-native listings count as APARTMENT)
     if (filterCategory !== 'all') {
@@ -280,14 +278,13 @@ export default function ListingsPage({ t }: { t: Translations }) {
               { key: 'all', label: t.listings.all },
               { key: 'new', label: t.listings.new },
               { key: 'secondary', label: t.listings.secondary },
-              { key: 'urgent', label: 'Срочные' },
             ] as const).map(tab => (
               <button
                 key={tab.key}
                 data-public-catalog-action={`tab:${tab.key}`}
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.key ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}
-                style={activeTab === tab.key ? { backgroundColor: tab.key === 'urgent' ? '#dc2626' : '#1a4d3a' } : {}}
+                style={activeTab === tab.key ? { backgroundColor: '#1a4d3a' } : {}}
               >
                 {tx(tab.label)}
               </button>
