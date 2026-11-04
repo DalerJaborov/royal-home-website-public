@@ -6,6 +6,7 @@ import { normalizeImageUrls } from "./lib/uploads-url";
 import { normalizeCrmVideoUrl } from "./lib/crm-video-url";
 import {
   upsertListingByExternalId,
+  publishNativeListingFromCrm,
   setListingPublishedByExternalId,
   setListingSoldByExternalId,
   setListingPublishedById,
@@ -48,6 +49,7 @@ const itemSchema = z.object({
   // каталога Meta. .catch(undefined): старый payload без поля (или с мусором) не
   // должен ронять всю партию — просто номер не обновится.
   shortId: z.number().int().positive().optional().catch(undefined),
+  crmPriceVersion: z.number().int().min(0).max(2_147_483_647).optional(),
   action: z.enum(["publish", "unpublish", "sold", "unsold", "facts"]),
   facts: factsSchema.refine(value => Object.keys(value).length > 0, 'Нет характеристик').optional(),
   // Required for "publish" (may need to create the listing). Ignored for
@@ -194,7 +196,24 @@ crmSyncApp.post("/listings", async (c) => {
         const id = await updateListingFactsFromCrm(siteId != null ? { id: siteId } : { externalId: item.externalId }, completeCrmRepairFacts(item.facts));
         results.push(id == null ? { externalId: item.externalId, ok: false, error: 'Объект не найден или база данных недоступна' } : { externalId: item.externalId, ok: true, id });
       } else if (item.action === "publish") {
-        if (siteId != null) {
+        if (siteId != null && item.crmPriceVersion !== undefined && item.data) {
+          const id = await publishNativeListingFromCrm(siteId, {
+            ...item.data,
+            crmShortId: item.shortId,
+            crmPriceVersion: item.crmPriceVersion,
+            videoUrl: normalizeCrmVideoUrl(item.data.videoUrl),
+          });
+          if (id == null) {
+            results.push({
+              externalId: item.externalId,
+              ok: false,
+              retryable: id === undefined,
+              error: id === undefined ? "База данных сайта недоступна" : "Объявление на сайте не найдено",
+            });
+          } else {
+            results.push({ externalId: item.externalId, ok: true, id });
+          }
+        } else if (siteId != null) {
           // Объект живёт на сайте (создан здесь) — просто снова показываем его,
           // не перезаписывая его собственные (более богатые) поля данными из CRM.
           await setListingPublishedById(siteId, true);
@@ -206,20 +225,21 @@ crmSyncApp.post("/listings", async (c) => {
           results.push({ externalId: item.externalId, ok: true, id: siteId });
         } else {
           if (!item.data) {
-            results.push({ externalId: item.externalId, ok: false, error: "Нет данных объекта для публикации" });
+            results.push({ externalId: item.externalId, ok: false, retryable: false, error: "Нет данных объекта для публикации" });
             continue;
           }
           const id = await upsertListingByExternalId(item.externalId, {
             ...item.data,
             imageUrls: normalizeImageUrls(item.data.imageUrls) ?? undefined,
             crmShortId: item.shortId,
+            crmPriceVersion: item.crmPriceVersion,
             // null, а не undefined: drizzle пропускает undefined, а нам нужно очистить.
             videoUrl: normalizeCrmVideoUrl(item.data.videoUrl),
           });
           // null = БД недоступна (memory-режим): объект НЕ сохранён — честная ошибка
           // вместо ok:true, иначе CRM пометит объект опубликованным, а на сайте его нет.
           if (id == null) {
-            results.push({ externalId: item.externalId, ok: false, error: "База данных сайта недоступна — объект не сохранён" });
+            results.push({ externalId: item.externalId, ok: false, retryable: true, error: "База данных сайта недоступна — объект не сохранён" });
           } else {
             results.push({ externalId: item.externalId, ok: true, id });
           }

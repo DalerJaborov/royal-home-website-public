@@ -51,7 +51,32 @@ try {
   assert.equal((await findListingByExternalId(externalId))?.type, null);
   await request({ action: 'publish', data: source });
   assert.equal((await findListingByExternalId(externalId))?.type, null);
-  console.log('PASS: real MySQL persistence, null clearing, old sender compatibility, facts-only content/status preservation, native ID and repeat upsert');
+  await request({ action: 'publish', crmPriceVersion: 8, data: { ...source, price: 780000, description: 'Цена 780 000' } });
+  await request({ action: 'publish', crmPriceVersion: 7, data: { ...source, price: 800000, description: 'Цена 800 000' } });
+  await request({ action: 'publish', data: { ...source, price: 800000, description: 'Цена 800 000' } });
+  const versioned = await findListingByExternalId(externalId);
+  assert.equal(versioned?.price, 780000);
+  assert.equal(versioned?.description, 'Цена 780 000');
+  assert.equal(versioned?.crmPriceVersion, 8);
+
+  // A native listing keeps its title/description and receives the new numeric price.
+  const nativeListingId = nativeId;
+  assert(nativeListingId);
+  await request({ action: 'publish', siteListingId: nativeListingId, crmPriceVersion: 10, data: { ...source, title: 'Импорт', price: 760000 } });
+  await request({ action: 'publish', siteListingId: nativeListingId, crmPriceVersion: 9, data: { ...source, price: 780000 } });
+  const versionedNative = await findListingById(nativeListingId);
+  assert.equal(versionedNative?.price, 760000);
+  const [nativeVersion] = await getDb()!.select({ crmPriceVersion: listings.crmPriceVersion })
+    .from(listings).where(eq(listings.id, nativeListingId));
+  assert.equal(nativeVersion?.crmPriceVersion, 10);
+  assert.equal(versionedNative?.title, source.title);
+
+  await Promise.all([
+    request({ action: 'publish', crmPriceVersion: 12, data: { ...source, price: 740000 } }),
+    request({ action: 'publish', crmPriceVersion: 11, data: { ...source, price: 750000 } }),
+  ]);
+  assert.equal((await findListingByExternalId(externalId))?.price, 740000);
+  console.log('PASS: real MySQL persistence, legacy compatibility, native price updates and ordered CRM prices');
 } finally {
   await getDb()!.delete(listings).where(eq(listings.externalId, externalId));
   if (nativeId) await getDb()!.delete(listings).where(eq(listings.id, nativeId));
