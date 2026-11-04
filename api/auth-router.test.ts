@@ -37,7 +37,7 @@ describe("authRouter.me session probe", () => {
     expect(result).not.toHaveProperty("passwordHash"); expect(result).not.toHaveProperty("totpSecret");
   });
   it("an anonymous probe does not authorize admin mutations", async () => {
-    await expect(caller().totpSetup()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller().totpSetup({ password: "synthetic-password" })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 });
 

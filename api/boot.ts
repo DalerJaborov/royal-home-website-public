@@ -23,12 +23,19 @@ import { getInstagramCover } from "./lib/instagram-cover";
 import { startLeadDeliveryWorker } from './lib/lead-delivery-worker';
 import { createCardImagesApp } from './lib/card-images-route';
 import { metaPixelCspSources } from './lib/meta-pixel-html';
+import { isTrustedMutationRequest } from './lib/request-origin';
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
 // Meta Pixel hosts are added to the CSP only when META_PIXEL_ID is set.
 const metaCsp = metaPixelCspSources(Boolean(env.metaPixelId));
 
+// Reject foreign browser mutations before reading a potentially large body.
+app.use('/api/trpc/*', async (c, next) => {
+  c.header('Cache-Control', 'no-store');
+  if (!isTrustedMutationRequest(c.req.raw)) return c.json({ error: 'Untrusted request origin' }, 403);
+  await next();
+});
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 
 // Security headers on every response. CSP allows Google Fonts (used in

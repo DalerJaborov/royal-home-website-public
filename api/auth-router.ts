@@ -3,9 +3,9 @@ import * as cookie from "cookie";
 import { TRPCError } from "@trpc/server";
 import { Session } from "@contracts/constants";
 import { getSessionCookieOptions } from "./lib/cookies";
-import { createRouter, authedQuery, publicQuery } from "./middleware";
+import { createRouter, authedQuery, adminQuery, publicQuery } from "./middleware";
 import { signSessionToken } from "./kimi/session";
-import { findUserByEmail, findUserByUnionId, setTotpSecret, setTotpEnabled, bumpSessionVersion, consumePasswordResetToken, LOCAL_ADMIN_UNION_ID } from "./queries/users";
+import { findUserByEmail, findUserByUnionId, changeTotpState, bumpSessionVersion, consumePasswordResetToken, LOCAL_ADMIN_UNION_ID } from "./queries/users";
 import { isDbAvailable } from "./queries/connection";
 import { hashPassword, verifyPassword } from "./lib/password";
 import { assertRateLimit } from "./lib/rate-limit";
@@ -159,45 +159,64 @@ export const authRouter = createRouter({
   // ── Two-factor setup (admin → Настройки → Безопасность) ──────────
   totpStatus: authedQuery.query(({ ctx }) => ({ enabled: ctx.user.totpEnabled })),
 
-  // Generates a new secret and returns a QR code to scan. Doesn't require a
-  // code yet — totpConfirm below turns enforcement on once the admin proves
-  // the app is actually set up correctly.
-  totpSetup: authedQuery.mutation(async ({ ctx }) => {
+  // Require the password for initial setup. Active keys must first be disabled
+  // with both password and current TOTP; setup cannot silently replace them.
+  totpSetup: adminQuery.input(z.object({ password: z.string().min(1).max(200) })).mutation(async ({ ctx, input }) => {
+    assertRateLimit(ctx.req, "totp-settings", 8, 5 * 60 * 1000);
     if (!isDbAvailable()) {
       throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Требуется подключённая база данных." });
     }
-    if (!ctx.user.email) {
+    const user = await findUserByUnionId(ctx.user.unionId);
+    if (!user || user.sessionVersion !== ctx.user.sessionVersion || !user.passwordHash || !verifyPassword(input.password, user.passwordHash)) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Подтвердите текущий пароль." });
+    }
+    if (user.totpEnabled) {
+      throw new TRPCError({ code: "CONFLICT", message: "2FA уже включена. Для замены сначала отключите её паролем и текущим кодом." });
+    }
+    if (!user.email) {
       throw new TRPCError({ code: "PRECONDITION_FAILED", message: "У аккаунта не задан email." });
     }
     const secret = generateTotpSecret();
-    await setTotpSecret(ctx.user.unionId, secret);
-    const qrCodeDataUrl = await generateTotpQrCode(ctx.user.email, secret);
+    const qrCodeDataUrl = await generateTotpQrCode(user.email, secret);
+    if (!await changeTotpState(user, { secret, enabled: false, revokeSessions: false })) {
+      throw new TRPCError({ code: "CONFLICT", message: "Настройки изменились. Обновите страницу." });
+    }
     return { qrCodeDataUrl, secret };
   }),
 
-  totpConfirm: authedQuery
+  totpConfirm: adminQuery
     .input(z.object({ code: z.string().min(6).max(6) }))
     .mutation(async ({ input, ctx }) => {
+      assertRateLimit(ctx.req, "totp-settings", 8, 5 * 60 * 1000);
       const user = await findUserByUnionId(ctx.user.unionId);
-      if (!user?.totpSecret || !user.email) {
+      if (!user?.totpSecret || !user.email || user.totpEnabled || user.sessionVersion !== ctx.user.sessionVersion) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Сначала начните настройку 2FA." });
       }
       if (!verifyTotpCode(user.email, user.totpSecret, input.code)) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Неверный код. Проверьте время на телефоне и попробуйте снова." });
       }
-      await setTotpEnabled(ctx.user.unionId, true);
+      if (!await changeTotpState(user, { secret: user.totpSecret, enabled: true, revokeSessions: true })) {
+        throw new TRPCError({ code: "CONFLICT", message: "Настройки изменились. Обновите страницу." });
+      }
+      await issueSessionCookie(ctx, user.unionId, user.sessionVersion + 1);
       return { success: true };
     }),
 
-  totpDisable: authedQuery
-    .input(z.object({ password: z.string().min(1).max(200) }))
+  totpDisable: adminQuery
+    .input(z.object({ password: z.string().min(1).max(200), code: z.string().regex(/^\d{6}$/) }))
     .mutation(async ({ input, ctx }) => {
+      assertRateLimit(ctx.req, "totp-settings", 8, 5 * 60 * 1000);
       const user = await findUserByUnionId(ctx.user.unionId);
-      if (!user?.passwordHash || !verifyPassword(input.password, user.passwordHash)) {
+      if (!user?.passwordHash || user.sessionVersion !== ctx.user.sessionVersion || !verifyPassword(input.password, user.passwordHash)) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Неверный пароль" });
       }
-      await setTotpEnabled(ctx.user.unionId, false);
-      await setTotpSecret(ctx.user.unionId, null);
+      if (!user.totpEnabled || !user.totpSecret || !user.email || !verifyTotpCode(user.email, user.totpSecret, input.code)) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Неверный код из приложения." });
+      }
+      if (!await changeTotpState(user, { secret: null, enabled: false, revokeSessions: true })) {
+        throw new TRPCError({ code: "CONFLICT", message: "Настройки изменились. Обновите страницу." });
+      }
+      await issueSessionCookie(ctx, user.unionId, user.sessionVersion + 1);
       return { success: true };
     }),
 });

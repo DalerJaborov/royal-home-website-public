@@ -15,15 +15,18 @@ export default function TwoFactorSettings() {
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [confirmError, setConfirmError] = useState('');
+  const [setupPassword, setSetupPassword] = useState('');
 
   const [disablePassword, setDisablePassword] = useState('');
+  const [disableCode, setDisableCode] = useState('');
   const [showDisable, setShowDisable] = useState(false);
   const [disableError, setDisableError] = useState('');
 
   const startSetup = async () => {
     setConfirmError('');
     try {
-      const res = await setupMutation.mutateAsync();
+      const res = await setupMutation.mutateAsync({ password: setupPassword });
+      setSetupPassword('');
       setQrCode(res.qrCodeDataUrl);
       setSecret(res.secret);
     } catch (e) {
@@ -54,9 +57,10 @@ export default function TwoFactorSettings() {
   const disable = async () => {
     setDisableError('');
     try {
-      await disableMutation.mutateAsync({ password: disablePassword });
+      await disableMutation.mutateAsync({ password: disablePassword, code: disableCode });
       setShowDisable(false);
       setDisablePassword('');
+      setDisableCode('');
       await utils.auth.totpStatus.invalidate();
     } catch (e) {
       setDisableError(e instanceof Error ? e.message : 'Неверный пароль');
@@ -129,20 +133,24 @@ export default function TwoFactorSettings() {
             </div>
           ) : (
             <div className="space-y-3 max-w-sm">
-              <label className="block text-sm font-medium text-gray-700">Подтвердите паролем</label>
+              <label className="block text-sm font-medium text-gray-700" htmlFor="disable-2fa-password">Текущий пароль</label>
               <input
+                id="disable-2fa-password"
+                autoComplete="current-password"
                 type="password"
                 value={disablePassword}
                 onChange={(e) => setDisablePassword(e.target.value)}
                 placeholder="Пароль от аккаунта"
                 className={inputClass}
               />
+              <label className="block text-sm font-medium text-gray-700" htmlFor="disable-2fa-code">Код из приложения</label>
+              <input id="disable-2fa-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={disableCode} onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ''))} className={inputClass} />
               {disableError && <div className="px-4 py-2.5 rounded-xl bg-red-50 text-red-600 text-sm font-medium">{disableError}</div>}
               <div className="flex gap-3">
-                <button onClick={disable} disabled={!disablePassword || disableMutation.isPending} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50">
+                <button onClick={disable} disabled={!disablePassword || disableCode.length !== 6 || disableMutation.isPending} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50">
                   {disableMutation.isPending ? 'Отключение...' : 'Да, отключить'}
                 </button>
-                <button onClick={() => { setShowDisable(false); setDisableError(''); }} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50">
+                <button onClick={() => { setShowDisable(false); setDisableError(''); setDisablePassword(''); setDisableCode(''); }} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50">
                   Отмена
                 </button>
               </div>
@@ -151,10 +159,12 @@ export default function TwoFactorSettings() {
         </div>
       ) : (
         <div className="space-y-3">
+          <label className="block text-sm font-medium text-gray-700" htmlFor="setup-2fa-password">Для настройки подтвердите текущий пароль</label>
+          <input id="setup-2fa-password" type="password" autoComplete="current-password" value={setupPassword} onChange={(e) => setSetupPassword(e.target.value)} className={`${inputClass} max-w-sm`} />
           {confirmError && <div className="px-4 py-2.5 rounded-xl bg-red-50 text-red-600 text-sm font-medium">{confirmError}</div>}
           <button
             onClick={startSetup}
-            disabled={setupMutation.isPending}
+            disabled={!setupPassword || setupMutation.isPending}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: '#1a4d3a' }}
           >
