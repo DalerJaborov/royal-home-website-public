@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('./env', () => ({ env: { databaseUrl: '', isProduction: false } }));
 vi.mock('../queries/cms', () => ({ getCmsEntry: vi.fn() }));
 vi.mock('../queries/articles', () => ({ findPublishedArticleBySlug: vi.fn(), findPublishedArticles: vi.fn(async () => ({ items: [], total: 0 })) }));
@@ -7,6 +7,8 @@ import { memoryDeleteListing, memoryUpdateListing } from '../queries/memory-stor
 import { headForPath } from './prerenderSeo';
 import { buildSitemapXml } from './sitemap';
 import { localizedPath } from '@contracts/public-i18n';
+beforeEach(() => vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { headers: { 'content-type': 'video/mp4' } }))));
+afterEach(() => vi.unstubAllGlobals());
 
 describe('future listing lifecycle, without production records or provider calls', () => {
   it('creates metadata, follows fact changes and removes all published routes after unpublish', async () => {

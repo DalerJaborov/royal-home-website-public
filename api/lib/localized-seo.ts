@@ -4,7 +4,7 @@ import { englishPropertyMeta } from '@contracts/english-catalog';
 import { listingJsonLd } from '@contracts/listing-jsonld';
 import { listingVideoContentUrl, VIDEO_COPY } from '@contracts/listing-video';
 import { SERVICE_SEO } from '@contracts/services-seo';
-import { findAllListings, findListingById } from '../queries/listings';
+import { findAllListings, findListingById } from '../queries/public-listings';
 import { findPublishedArticleBySlug, findPublishedArticles } from '../queries/articles';
 import { getCmsEntry } from '../queries/cms';
 import { completedLocalePages, getPublicArticleTranslation, getPublicDictionary, translationSourceHash } from './public-translations';

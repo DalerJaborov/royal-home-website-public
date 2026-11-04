@@ -3,7 +3,7 @@ import { localizedPath, publishedAlternates } from '@contracts/public-i18n';
 import { listingVideoContentUrl, listingVideoMeta, VIDEO_COPY } from '@contracts/listing-video';
 import { listingJsonLd } from '@contracts/listing-jsonld';
 import { projectPublicListing } from '@contracts/public-listing';
-import { findListingById } from '../queries/listings';
+import { findListingById } from '../queries/public-listings';
 import { completedLocalePages } from './public-translations';
 import type { Head } from './prerenderSeo';
 
@@ -12,10 +12,17 @@ const esc = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;'
 
 export async function videoWatchHead(id: number, locale: PublicLocale): Promise<Head | null> {
   const source = await findListingById(id);
-  if (!source || source.published === false || !source.videoUrl || !source.imageUrls?.[0]) return null;
+  if (!source || source.published === false || !source.imageUrls?.[0]) return null;
   const row = projectPublicListing(source);
   const meta = listingVideoMeta(row, locale);
   const images = row.imageUrls!.map(image => new URL(image, ORIGIN).href);
+  if (!row.videoUrl) {
+    const copy = VIDEO_COPY[locale];
+    const detail = localizedPath(`/listing/${id}`, locale);
+    return { ...meta, title: copy.missing, image: images[0], type: 'website', language: locale,
+      status: 404, noindex: true, publicListing: row, jsonLd: null,
+      body: `<main class="mx-auto max-w-3xl px-4 pt-28 pb-24"><h1>${esc(copy.missing)}</h1><img src="${esc(images[0])}" alt="" style="max-width:100%;height:auto"><a href="${detail}">${esc(copy.back)}</a></main>` };
+  }
   const contentUrl = listingVideoContentUrl(id);
   const listingSchema = listingJsonLd({ ...row, title: meta.name, description: meta.description,
     images, url: meta.url, videoUrl: contentUrl, uploadDate: row.createdAt });

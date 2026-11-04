@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../queries/listings", () => ({ findListingById: vi.fn(), findAllListings: vi.fn() }));
 vi.mock("../queries/cms", () => ({ getCmsEntry: vi.fn() }));
@@ -16,11 +16,13 @@ const listing = {
 } as unknown as Awaited<ReturnType<typeof findListingById>>;
 
 beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { headers: { 'content-type': 'video/mp4' } })));
   vi.mocked(findListingById).mockResolvedValue(listing);
   vi.mocked(findAllListings).mockResolvedValue([listing!] as Awaited<ReturnType<typeof findAllListings>>);
   vi.mocked(getCmsEntry).mockResolvedValue(undefined);
   vi.mocked(findPublishedArticles).mockResolvedValue({ items: [], total: 0 });
 });
+afterEach(() => vi.unstubAllGlobals());
 
 const template = '<html><head><title>Home</title><meta name="description" content="Home" /><meta name="robots" content="index, follow" /><link rel="canonical" href="https://royalhome.tj/" /></head><body><div id="root"></div></body></html>';
 

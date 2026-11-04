@@ -18,7 +18,7 @@ import { listingVideoContentUrl, VIDEO_COPY } from '@contracts/listing-video';
  * Публичные объекты и статьи получают также видимый начальный HTML из тех же
  * данных, что использует SPA. Ошибка данных возвращает 503 для повторной попытки.
  */
-import { findListingById, findAllListings } from "../queries/listings";
+import { findListingById, findAllListings } from "../queries/public-listings";
 import { getCmsEntry } from "../queries/cms";
 import { findPublishedArticleBySlug, findPublishedArticles } from "../queries/articles";
 import { buildListingSeoMeta } from "./seo";

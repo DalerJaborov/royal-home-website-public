@@ -24,8 +24,12 @@ describe('video pages use the existing listing analytics contract', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
   it('does not record a listing view for a page without a playable video', async () => {
-    await renderPublicApplication({ path: `/listing/${listing.id}/video`, cms: {}, inventory: [],
+    const html = await renderPublicApplication({ path: `/listing/${listing.id}/video`, cms: {}, inventory: [],
       listing: projectPublicListing({ ...listing, videoUrl: null }) });
+    expect(html).toContain('Видео недоступно');
+    expect(html).toContain('/uploads/local-video-fixture.webp');
+    expect(html).toContain(`href="/listing/${listing.id}"`);
+    expect(html).not.toContain('<video');
     expect(metaView).toHaveBeenCalledWith(undefined);
     expect(metaView).not.toHaveBeenCalledWith(listing.id);
   });

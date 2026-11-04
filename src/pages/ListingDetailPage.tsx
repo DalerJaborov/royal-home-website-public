@@ -24,7 +24,8 @@ import { listingFactRows } from '@contracts/listing-facts';
 import ShareButton from '@/components/ShareButton';
 import ThumbnailImage from '@/components/ThumbnailImage';
 import { buildGallerySlides } from '@/lib/gallerySlides';
-import { listingVideoContentUrl, VIDEO_COPY } from '@contracts/listing-video';
+import { listingVideoContentUrl, VIDEO_COPY, VIDEO_PHOTOS_COPY } from '@contracts/listing-video';
+import { UnavailableListingVideo } from '@/components/UnavailableListingVideo';
 
 /**
  * Показывать ли карту с точным расположением объекта. Выключено по решению
@@ -86,8 +87,9 @@ function startsOnVideoControls(target: EventTarget | null, clientY: number) {
   return clientY > target.getBoundingClientRect().bottom - VIDEO_CONTROLS_ZONE_PX;
 }
 
-export function SwipeableGallery({ images, videoUrl }: { images: string[]; videoUrl?: string | null }) {
-  const { text: tx } = useLocale();
+export function SwipeableGallery({ images, videoUrl, onVideoError }: { images: string[]; videoUrl?: string | null; onVideoError?: () => void }) {
+  const { text: tx, locale } = useLocale();
+  const [failedVideo, setFailedVideo] = useState<string>();
   // Ролик — вторым слайдом (после первого фото), см. lib/gallerySlides.ts.
   const slides = useMemo(() => buildGallerySlides(images, videoUrl), [images, videoUrl]);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -292,13 +294,16 @@ export function SwipeableGallery({ images, videoUrl }: { images: string[]; video
                 // Вертикальный ролик 9:16 вписывается без растяжения (object-contain на
                 // тёмном фоне). preload="none": файл с сервера CRM не качается, пока
                 // человек не нажал play; poster — первое фото, оно уже загружено.
-                loadedPhotos.has(i) && <video
+                failedVideo === slide.src ? <UnavailableListingVideo poster={images[0]}>
+                  {images.length > 0 && <button className="underline mt-2" onClick={(event) => { event.stopPropagation(); goTo(0); }}>{VIDEO_PHOTOS_COPY[locale]}</button>}
+                </UnavailableListingVideo> : loadedPhotos.has(i) && <video
                   ref={videoRef}
                   src={slide.src}
                   poster={images[0]}
                   controls
                   playsInline
                   preload="none"
+                  onError={() => { setFailedVideo(slide.src); onVideoError?.(); }}
                   aria-label={tx("Видео объекта")}
                   className="w-full h-full object-contain bg-black"
                 />
@@ -392,7 +397,7 @@ export function SwipeableGallery({ images, videoUrl }: { images: string[]; video
 
       {/* Photo count */}
       <div className="flex items-center gap-2 mt-2">
-        <span className="text-xs text-gray-500 font-medium">{images.length}  {tx("фото")}{videoUrl ? ` · ${tx("видео")}` : ''}</span>
+        <span className="text-xs text-gray-500 font-medium">{images.length}  {tx("фото")}{videoUrl && failedVideo !== videoUrl ? ` · ${tx("видео")}` : ''}</span>
       </div>
     </div>
   );
@@ -405,6 +410,8 @@ export default function ListingDetailPage() {
   const { text: tx, locale, path } = useLocale();
   const { id } = useParams();
   const { listing, isLoading, isNotFound } = useListingData(Number(id));
+  const [failedVideoSource, setFailedVideoSource] = useState<string>();
+  const videoAvailable = Boolean(listing?.videoUrl && listing.videoUrl !== failedVideoSource);
   const { listings: allListings } = useListingsData();
   const { isFav: isFavFn, toggleFav } = useFavorites();
   const trackListingEvent = useTrackListingEvent();
@@ -441,7 +448,7 @@ export default function ListingDetailPage() {
       ? listingJsonLd({ title: englishSeo ? englishSeo.heading : locale === 'ru' ? listing.h1?.trim() || listing.title : listingTitle(listing, locale, tx), description: seoDescription,
           images: listing.photos?.map(absUrl) || [], url: listingUrl, price: listing.price,
           rooms: listing.rooms, area: listing.area, sold: Boolean(listing.sold), category: listing.category,
-          videoUrl: listing.videoUrl ? listingVideoContentUrl(listing.id) : null, uploadDate: listing.createdAt })
+          videoUrl: videoAvailable ? listingVideoContentUrl(listing.id) : null, uploadDate: listing.createdAt })
       : null,
   });
 
@@ -561,7 +568,7 @@ export default function ListingDetailPage() {
       <div className="max-w-3xl mx-auto px-4 pt-2">
         {/* Gallery */}
         {images.length > 0 || listing.videoUrl ? (
-          <SwipeableGallery key={listing.id} images={images} videoUrl={listing.videoUrl} />
+          <SwipeableGallery key={listing.id} images={images} videoUrl={listing.videoUrl} onVideoError={() => setFailedVideoSource(listing.videoUrl)} />
         ) : (
           <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
             <NoPhotoPlaceholder />
@@ -569,7 +576,7 @@ export default function ListingDetailPage() {
         )}
 
         {/* Title & Price */}
-        {listing.videoUrl && images.length > 0 && <Link to={`/listing/${listing.id}/video`} className="inline-flex items-center gap-2 mt-4 text-emerald-800 underline underline-offset-4"><Play className="h-4 w-4" aria-hidden="true" />{VIDEO_COPY[locale].label}</Link>}
+        {videoAvailable && images.length > 0 && <Link to={`/listing/${listing.id}/video`} className="inline-flex items-center gap-2 mt-4 text-emerald-800 underline underline-offset-4"><Play className="h-4 w-4" aria-hidden="true" />{VIDEO_COPY[locale].label}</Link>}
         <div className="mt-5">
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-2xl font-extrabold text-emerald-800">{tx(formatPrice(listing.price))}</span>

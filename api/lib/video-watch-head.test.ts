@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../queries/listings', () => ({ findListingById: vi.fn(), findAllListings: vi.fn() }));
 import { findListingById } from '../queries/listings';
 import { videoWatchHead } from './video-watch-head';
@@ -12,7 +12,23 @@ const source = { id: 120, title: 'Квартира <дом>', rooms: 2, area: 80
   urgent: false, seoDesc: null, date: null, crmShortId: 183, imageUrls: ['/uploads/cover.webp'],
   videoUrl: 'https://crm.royalhome.tj/api/v1/public/property-video/183.mp4',
   createdAt: new Date('2026-10-01'), updatedAt: new Date('2026-10-02') };
-beforeEach(() => { vi.mocked(findListingById).mockReset().mockResolvedValue(source as never); });
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { headers: { 'content-type': 'video/mp4' } })));
+  vi.mocked(findListingById).mockReset().mockResolvedValue(source as never);
+});
+afterEach(() => vi.unstubAllGlobals());
+
+it('does not advertise a confirmed missing source as an available video', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
+  vi.mocked(findListingById).mockResolvedValue({ ...source, videoUrl: source.videoUrl + '?v=missing-fixture' } as never);
+  const head = await videoWatchHead(source.id, 'ru');
+  expect(head?.status).toBe(404);
+  expect(head?.noindex).toBe(true);
+  expect(JSON.stringify(head?.jsonLd)).not.toContain('VideoObject');
+  expect(head?.body).toContain('/listing/120');
+  expect(head?.body).toContain('/uploads/cover.webp');
+  expect(head?.body).not.toContain('<video');
+});
 
 describe('individual video watch pages', () => {
   it.each(['ru', 'tg', 'en'] as const)('provides visible video, self canonical and reciprocal language links in %s without JS', async locale => {
@@ -42,7 +58,9 @@ describe('individual video watch pages', () => {
   });
   it.each([{ published: false }, { videoUrl: null }, { imageUrls: [] }, { createdAt: undefined }])('omits unavailable or incomplete video %j from indexable pages', async extra => {
     vi.mocked(findListingById).mockResolvedValue({ ...source, ...extra } as never);
-    expect(await videoWatchHead(120, 'ru')).toBeNull();
+    const watch = await videoWatchHead(120, 'ru');
+    if ('videoUrl' in extra) { expect(watch?.status).toBe(404); expect(watch?.jsonLd).toBeNull(); }
+    else expect(watch).toBeNull();
     const head = await headForPath('/listing/120/video');
     expect(head.status).toBe(404);
     expect(head.noindex).toBe(true);

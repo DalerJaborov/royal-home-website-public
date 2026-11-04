@@ -9,6 +9,8 @@ export const VIDEO_COPY = {
   en: { label: 'Video tour', back: 'Property photos, price and details', catalog: 'Catalog', sold: 'This property is sold. This is an archived video tour.', missing: 'Video unavailable', loading: 'Loading video…' },
 } as const;
 
+export const VIDEO_PHOTOS_COPY = { ru: 'К фотографиям', tg: 'Ба аксҳо', en: 'View photos' } as const;
+
 export function listingVideoContentUrl(id: number): string {
   return `https://royalhome.tj/media/listing-video/${id}.mp4`;
 }

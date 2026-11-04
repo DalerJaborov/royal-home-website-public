@@ -4,7 +4,7 @@
  * опубликованные объекты (/listing/:id), активные cms-статьи блога (/blog/:id)
  * и опубликованные статьи из таблицы articles (/blog/:slug).
  */
-import { findAllListings } from "../queries/listings";
+import { findAllListings } from "../queries/public-listings";
 import { getCmsEntry } from "../queries/cms";
 import { findPublishedArticles } from "../queries/articles";
 import { SERVICE_SEO } from "@contracts/services-seo";
