@@ -1,0 +1,9 @@
+# Admin request and MFA protection
+
+Browser mutations under `/api/trpc/*` accept only the exact Royal Home origins in production. Cross-site and sibling-subdomain requests without Origin are rejected using Fetch Metadata. Non-browser JSON clients may omit these headers; this check supplements authentication and does not replace it. The CRM integration has its own authenticated `/api/v1/crm` routes. All tRPC responses are marked `no-store`.
+
+MFA setup requires an administrator and the current password. An enabled key cannot be replaced by setup. Disabling MFA requires the password and a current authenticator code. Setup, confirmation and disable attempts share a rate limit. Database updates compare the observed secret, enabled flag and session version, so stale requests cannot change a different key. Confirmation and disable revoke previous sessions and issue a new cookie for the current browser in the ordinary response.
+
+No existing administrator credentials or MFA enrollments are changed by deployment. If the authenticator is lost, the existing director-controlled recovery flow through CRM remains available. This patch does not enable MFA on an account where it was previously disabled.
+
+Validation: router tests exercise password/TOTP checks, role checks, stale sessions, rate limits and conflicting updates; origin tests include sibling subdomains and proxy-origin handling. The compare-and-set SQL was also exercised against an isolated MySQL instance with concurrent setup/confirmation requests. No production account was changed by these tests.

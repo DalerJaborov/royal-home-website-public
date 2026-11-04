@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import app from "./boot";
 app.get('/csp-nonce-probe', (c) => c.html('<main>Test</main>'));
 
+it('rejects foreign mutations before tRPC dispatch and disables caching', async () => {
+  const res = await app.request('/api/trpc/auth.logout', { method: 'POST', headers: { origin: 'https://evil.test', 'content-type': 'application/json' }, body: '{}' });
+  expect(res.status).toBe(403);
+  expect(res.headers.get('cache-control')).toBe('no-store');
+});
+
 // С6/security-audit-11-09.md: заголовки безопасности должны стоять на КАЖДОМ
 // ответе, а не только там, где их проверяли глазами. Один запрос к
 // несуществующему пути достаточен — middleware вешает их до роутинга.

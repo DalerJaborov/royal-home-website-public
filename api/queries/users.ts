@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import * as schema from "@db/schema";
 import type { InsertUser } from "@db/schema";
@@ -192,23 +192,25 @@ export async function upsertUser(data: InsertUser) {
     .onDuplicateKeyUpdate({ set: updateSet });
 }
 
-// Stores a freshly generated secret without turning enforcement on yet —
-// login doesn't require a code until setTotpEnabled(unionId, true) runs
-// (after the admin confirms one code, proving the app is set up right).
-export async function setTotpSecret(unionId: string, secret: string | null) {
-  if (!isDbAvailable()) return;
-  await getDb()!
-    .update(schema.users)
-    .set({ totpSecret: secret })
-    .where(eq(schema.users.unionId, unionId));
-}
-
-export async function setTotpEnabled(unionId: string, enabled: boolean) {
-  if (!isDbAvailable()) return;
-  await getDb()!
-    .update(schema.users)
-    .set({ totpEnabled: enabled })
-    .where(eq(schema.users.unionId, unionId));
+// Initial setup stores a pending secret; confirmation enables it atomically.
+export async function changeTotpState(
+  expected: { unionId: string; sessionVersion: number; totpSecret: string | null; totpEnabled: boolean },
+  next: { secret: string | null; enabled: boolean; revokeSessions: boolean },
+) {
+  if (!isDbAvailable()) throw new Error('Database unavailable');
+  // Compare-and-set prevents a stale setup request from replacing an enabled key,
+  // or a confirmation from enabling a different concurrent setup's secret.
+  const result = await getDb()!.update(schema.users).set({
+    totpSecret: next.secret,
+    totpEnabled: next.enabled,
+    ...(next.revokeSessions ? { sessionVersion: sql`${schema.users.sessionVersion} + 1` } : {}),
+  }).where(and(
+    eq(schema.users.unionId, expected.unionId),
+    eq(schema.users.sessionVersion, expected.sessionVersion),
+    eq(schema.users.totpEnabled, expected.totpEnabled),
+    expected.totpSecret === null ? isNull(schema.users.totpSecret) : eq(schema.users.totpSecret, expected.totpSecret),
+  ));
+  return result[0].affectedRows === 1;
 }
 
 /**
