@@ -19,6 +19,8 @@ services:
     env_file: .env.production
     environment:
       PORT: "3000"
+      # Compose uses this for MySQL/tools; the public web process must not see it.
+      MYSQL_ROOT_PASSWORD: ""
       # Use the same public upload route locally, avoiding a CDN round trip.
       CARD_IMAGE_LOCAL_SOURCE: "1"
       # Only the existing fixed public-video handler; avoids a CDN round trip.
