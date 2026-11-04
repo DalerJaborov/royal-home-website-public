@@ -7,6 +7,15 @@ services:
         # с --env-file .env.production). Ключ публичный по своей природе.
         VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-}
     restart: unless-stopped
+    # Isolate a runaway web request from the other projects on the same host.
+    # 4 GiB leaves ample headroom above the measured < 512 MiB normal peak.
+    mem_limit: 4g
+    memswap_limit: 4g
+    pids_limit: 512
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     env_file: .env.production
     environment:
       PORT: "3000"
