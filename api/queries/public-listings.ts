@@ -3,7 +3,7 @@ import { projectVideoAvailability } from '../lib/video-availability';
 
 /** Public read paths share the same availability view; admin/sync keep raw rows. */
 export async function findAllListings(...args: Parameters<typeof rawAll>) {
-  return Promise.all((await rawAll(...args)).map(row => projectVideoAvailability(row)));
+  return projectVideoAvailability.many<Awaited<ReturnType<typeof rawAll>>[number]>(await rawAll(...args));
 }
 
 export async function findListingById(id: number) {

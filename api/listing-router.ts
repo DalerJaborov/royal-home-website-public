@@ -61,7 +61,7 @@ export const listingRouter = createRouter({
         includeUnpublished: isAdmin ? input?.includeUnpublished : false,
         includeAllCategories: isAdmin ? input?.includeAllCategories : false,
       });
-      return isAdmin ? listings : (await Promise.all(listings.map(row => projectVideoAvailability(row)))).map(projectPublicListing);
+      return isAdmin ? listings : (await projectVideoAvailability.many<(typeof listings)[number]>(listings)).map(projectPublicListing);
     }),
 
   getById: publicQuery
