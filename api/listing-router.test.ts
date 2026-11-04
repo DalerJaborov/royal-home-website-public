@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { User } from "@db/schema";
 import { listingRouter } from "./listing-router";
 import type { TrpcContext } from "./context";
-import { findAllListings } from './queries/listings';
+import { findAllListings, createListing } from './queries/listings';
+import { memoryUpdateListing, memoryDeleteListing } from './queries/memory-store';
+import { headForPath } from './lib/prerenderSeo';
+import { localizedPath } from '@contracts/public-i18n';
 import { PUBLIC_DETAIL_KEYS } from '@contracts/public-listing';
 
 /** Без DATABASE_URL запросы обслуживает встроенный набор объектов
@@ -18,6 +21,31 @@ function caller(user?: Partial<User>) {
 
 const admin = { id: 1, email: "admin@royalhome.tj", role: "admin" as const };
 const visitor = { id: 2, email: "user@example.com", role: "user" as const };
+
+it('public API and every locale hide a missing video while admin and stored URL stay intact', async () => {
+  const id = await createListing({ title: 'LOCAL MISSING VIDEO FIXTURE', location: 'Сино', rooms: 1, area: 40, price: 1,
+    published: true, imageUrls: ['/uploads/missing-fixture.webp'] });
+  const videoUrl = 'https://crm.royalhome.tj/api/v1/public/property-video/990126.mp4?v=missing';
+  memoryUpdateListing(id, { videoUrl });
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
+  try {
+    expect((await caller().getById({ id })).videoUrl).toBeNull();
+    expect((await caller().list({})).find(row => row.id === id)?.videoUrl).toBeNull();
+    expect((await caller(admin).getById({ id })).videoUrl).toBe(videoUrl);
+    for (const locale of ['ru', 'tg', 'en'] as const) {
+      const head = await headForPath(localizedPath(`/listing/${id}`, locale));
+      expect(head.status ?? 200).toBe(200);
+      expect(JSON.stringify(head.jsonLd)).not.toContain('VideoObject');
+      expect(head.publicListing?.videoUrl).toBeNull();
+      const watch = await headForPath(localizedPath(`/listing/${id}/video`, locale));
+      expect(watch.status).toBe(404);
+      expect(watch.noindex).toBe(true);
+      expect(watch.body).toContain('/uploads/missing-fixture.webp');
+      expect(watch.body).not.toContain('<video');
+    }
+    expect((await caller(admin).getById({ id })).videoUrl).toBe(videoUrl);
+  } finally { memoryDeleteListing(id); vi.unstubAllGlobals(); }
+});
 
 describe("точное расположение объекта в публичном ответе", () => {
   it('публичный DTO сохраняет даты и характеристики, но не CRM ID и приватные поля; админский ответ не меняется', async () => {

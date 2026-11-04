@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../queries/listings", () => ({ findAllListings: vi.fn() }));
 vi.mock("../queries/cms", () => ({ getCmsEntry: vi.fn() }));
 vi.mock("../queries/articles", () => ({ findPublishedArticles: vi.fn() }));
@@ -8,9 +8,22 @@ import { findPublishedArticles } from "../queries/articles";
 import { buildSitemapXml } from "./sitemap";
 
 beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { headers: { 'content-type': 'video/mp4' } })));
   vi.mocked(findAllListings).mockResolvedValue([]);
   vi.mocked(getCmsEntry).mockResolvedValue(undefined);
   vi.mocked(findPublishedArticles).mockResolvedValue({ items: [], total: 0 });
+});
+afterEach(() => vi.unstubAllGlobals());
+
+it('keeps the property but removes all language video entries after confirmed 404', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
+  vi.mocked(findAllListings).mockResolvedValue([{ id: 990125, title: 'Fixture', location: 'Сино', rooms: 1, area: 40, price: 1,
+    imageUrls: ['/uploads/fixture.webp'], createdAt: new Date('2026-10-01'), updatedAt: new Date('2026-10-01'),
+    videoUrl: 'https://crm.royalhome.tj/api/v1/public/property-video/990125.mp4' }] as never);
+  const xml = await buildSitemapXml();
+  expect(xml).toContain('/listing/990125</loc>');
+  expect(xml).not.toContain('990125/video');
+  expect(xml).not.toContain('<video:video>');
 });
 
 describe("Sitemap integrity", () => {

@@ -13,6 +13,7 @@ import {
 import { exportListingsToSheet, importListingsFromSheet } from "./lib/google-sheets";
 import { notifyCrmOfListingChange, notifyCrmOfListingUpsert } from "./lib/notifyCrm";
 import { projectPublicListing } from '@contracts/public-listing';
+import { projectVideoAvailability } from './lib/video-availability';
 
 /** Собирает полезную нагрузку обратного синка сайт→CRM из полей листинга.
  * Приводит null→undefined: у CRM-схемы поля optional (undefined), а не nullable. */
@@ -60,7 +61,7 @@ export const listingRouter = createRouter({
         includeUnpublished: isAdmin ? input?.includeUnpublished : false,
         includeAllCategories: isAdmin ? input?.includeAllCategories : false,
       });
-      return isAdmin ? listings : listings.map(projectPublicListing);
+      return isAdmin ? listings : (await projectVideoAvailability.many<(typeof listings)[number]>(listings)).map(projectPublicListing);
     }),
 
   getById: publicQuery
@@ -73,7 +74,7 @@ export const listingRouter = createRouter({
       if (!listing || (listing.published === false && !isAdmin)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Объявление не найдено" });
       }
-      return isAdmin ? listing : projectPublicListing(listing);
+      return isAdmin ? listing : projectPublicListing(await projectVideoAvailability(listing));
     }),
 
   // Admin endpoints

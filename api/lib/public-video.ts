@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { findListingById } from '../queries/listings';
-import { normalizeCrmVideoUrl } from './crm-video-url';
+import { crmVideoSource } from './video-availability';
 
 /** A fixed public listing ID, never an arbitrary URL. CRM itself stays excluded
  * from search. Stream bytes with backpressure; never buffer whole property videos. */
@@ -17,8 +17,8 @@ publicVideoApp.on(['GET', 'HEAD'], '/media/listing-video/:file', async c => {
   try {
     const listing = await findListingById(id);
     if (!listing || listing.published === false) return fail(404);
-    const source = normalizeCrmVideoUrl(listing.videoUrl);
-    if (!source || !/^\/api\/v1\/public\/property-video\/[1-9]\d*\.mp4$/.test(new URL(source).pathname)) return fail(404);
+    const upstreamUrl = crmVideoSource(listing.videoUrl);
+    if (!upstreamUrl) return fail(404);
     const headers = new Headers();
     for (const key of ['Range', 'If-Range', 'If-None-Match', 'If-Modified-Since']) {
       const value = c.req.header(key);
@@ -27,9 +27,6 @@ publicVideoApp.on(['GET', 'HEAD'], '/media/listing-video/:file', async c => {
     // Same fixed public CRM handler over the existing shared Docker network.
     // The publication/path checks above and CRM's own public-file checks still
     // apply. No arbitrary internal URL or CRM credentials can reach this route.
-    const sourceUrl = new URL(source);
-    const upstreamUrl = process.env.PUBLIC_VIDEO_LOCAL_SOURCE === '1'
-      ? new URL(sourceUrl.pathname + sourceUrl.search, 'http://royalhome-crm-api-1:4000').href : source;
     const upstream = await fetch(upstreamUrl, { method: c.req.method, headers, redirect: 'manual',
       signal: AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(180_000)]) });
     // A replaced/removed video is not an indexable HTML error or a redirect to login.
