@@ -84,6 +84,8 @@ export const listings = mysqlTable("listings", {
   // (contracts/meta-content-id.ts). NULL = CRM номер ещё не прислала: тогда сайт
   // не печатает номер вовсе. Приходит в payload синка (api/crm-sync-router.ts).
   crmShortId: int("crm_short_id").unique(),
+  // Latest accepted CRM property version for price-bearing publishes.
+  crmPriceVersion: int("crm_price_version"),
   images: int("images").default(5).notNull(),
   imageUrls: json("image_urls").$type<string[]>(),
   description: text("description"),

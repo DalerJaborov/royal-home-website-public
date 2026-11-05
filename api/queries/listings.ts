@@ -440,6 +440,7 @@ export async function upsertListingByExternalId(
     videoUrl?: string | null;
     /** Номер карточки CRM (Property.shortId); undefined = не менять. */
     crmShortId?: number;
+    crmPriceVersion?: number;
   }
 ) {
   if (!isDbAvailable()) return null;
@@ -447,10 +448,10 @@ export async function upsertListingByExternalId(
   // location приходит из CRM как "Район, Город" (см. siteSync.ts toSitePayload) —
   // достаём район для title/h1. category — раньше нигде не учитывалась, из-за
   // чего дом/участок/коммерция в SEO-текстах назывались «квартирой».
-  const seo = buildListingSeoMeta({
+  const seoForPrice = (price: number) => buildListingSeoMeta({
     title: data.title,
     location: data.location,
-    price: data.price,
+    price,
     rooms: data.rooms,
     area: data.area,
     category: data.category,
@@ -467,13 +468,20 @@ export async function upsertListingByExternalId(
       .where(eq(listings.externalId, externalId))
       .for("update");
     if (existing) {
-      const refreshed = refreshGeneratedListingSeo({ ...existing, ...data }, existing);
+      if (data.crmPriceVersion !== undefined && existing.crmPriceVersion !== null &&
+          data.crmPriceVersion < existing.crmPriceVersion) return existing.id;
+      // Legacy requests may arrive after a versioned price during a rolling release.
+      const protectedPrice = data.crmPriceVersion === undefined && existing.crmPriceVersion !== null;
+      const patch = protectedPrice ? { ...data, price: existing.price, description: undefined } : data;
+      const next = { ...existing, ...patch, description: patch.description ?? existing.description };
+      const refreshed = refreshGeneratedListingSeo(next, existing);
+      const seo = seoForPrice(patch.price);
       // Keep editorial text; refresh exact auto templates from the previous facts.
       await tx
         .update(listings)
         .set({
-          ...data,
-          ...generatedListingSeoPatch({ ...existing, ...data }, existing),
+          ...patch,
+          ...generatedListingSeoPatch(next, existing),
           sold: data.sold ?? existing.sold,
           externalId,
           published: true,
@@ -485,6 +493,7 @@ export async function upsertListingByExternalId(
         .where(eq(listings.externalId, externalId));
       return existing.id;
     }
+    const seo = seoForPrice(data.price);
     const [result] = await tx.insert(listings).values({
       floor: null, totalFloors: null, stage: null, repair: null, type: null,
       ...data,
@@ -501,6 +510,30 @@ export async function upsertListingByExternalId(
       date: new Date().toLocaleDateString("ru-RU"),
     });
     return result.insertId;
+  });
+}
+
+/** Syncs the CRM price of a site-created listing without replacing its editorial copy. */
+export async function publishNativeListingFromCrm(
+  id: number,
+  data: CrmListingFacts & { price: number; crmPriceVersion: number; crmShortId?: number; videoUrl: string | null },
+) {
+  if (!isDbAvailable()) return undefined;
+  return getDb()!.transaction(async (tx) => {
+    const where = eq(listings.id, id);
+    const [row] = await tx.select().from(listings).where(where).for("update");
+    if (!row) return null;
+    if (row.crmPriceVersion !== null && data.crmPriceVersion < row.crmPriceVersion) return row.id;
+    const patch = {
+      ...pickCrmListingFacts(data),
+      price: data.price,
+      crmPriceVersion: data.crmPriceVersion,
+      crmShortId: data.crmShortId,
+      videoUrl: data.videoUrl,
+      published: true,
+    };
+    await tx.update(listings).set({ ...patch, ...generatedListingSeoPatch({ ...row, ...patch }, row) }).where(where);
+    return row.id;
   });
 }
 
